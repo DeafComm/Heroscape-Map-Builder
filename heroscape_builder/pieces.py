@@ -27,11 +27,12 @@ def _standard_shape(size):
     if size == 7:
         return [(0, 0), (1, 0), (1, -1), (0, -1), (-1, 0), (-1, 1), (0, 1)]
     if size == 24:
-        # Rows of 4, 5, 6, 5 and 4 hexes.
+        # Rows of 6, 5, 5, 3, 3 and 2 hexes, each row starting half a hex further right
+        # than the one above, matching the real tile. Anchored near the middle.
         hexes = []
-        for r in range(-2, 3):
-            for q in range(max(-2, -r - 2), min(2, -r + 2) + 2):
-                hexes.append((q, r))
+        for r, length in enumerate((6, 5, 5, 3, 3, 2)):
+            for q in range(length):
+                hexes.append((q - 2, r - 2))
         return hexes
     raise ValueError(f"No standard shape for a {size}-hex tile")
 

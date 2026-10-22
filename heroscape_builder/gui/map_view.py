@@ -1,7 +1,7 @@
 """The map space: draws the hex grid and tiles, and handles placing tiles."""
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QApplication, QGraphicsItem, QGraphicsPathItem, QGraphicsScene, QGraphicsView
 
 from ..hexgrid import from_offset, hex_to_pixel, pixel_to_hex, rotate
@@ -14,6 +14,13 @@ GRID_LINE = QColor("#d6d0c4")
 OVER_LIMIT = QColor("#e01b1b")
 SELECTED = QColor("#ffd400")
 GHOST_OK = QColor("#1f9d3a")
+OTHER_LAYER_TINT = QColor("#5b6b85")  # tiles below the current layer are washed towards this
+
+# Scene units are scaled by this, so a hex is drawn about 22 pixels from centre to corner.
+VIEW_SCALE = 1.08
+
+# How a tile relates to the layer being worked on.
+ACTIVE, BELOW, ABOVE = "active", "below", "above"
 
 
 class TileItem(QGraphicsItem):
@@ -28,6 +35,7 @@ class TileItem(QGraphicsItem):
         self.over_limit = False
         self.selected = False
         self.blocked = False
+        self.state = ACTIVE
         self.path = outline_path(cells)
         self.polygons = [hex_polygon(q, r) for q, r in cells]
         self.centres = [QPointF(*hex_to_pixel(q, r, HEX_RADIUS)) for q, r in cells]
@@ -39,6 +47,8 @@ class TileItem(QGraphicsItem):
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.Antialiasing)
         fill = terrain_colour(self.piece.terrain, self.layer)
+        if self.state == BELOW:
+            fill = _blend(fill, OTHER_LAYER_TINT, 0.7)
         if self.ghost:
             fill.setAlpha(150)
         painter.setPen(QPen(QColor(0, 0, 0, 50), 0.8))
@@ -52,6 +62,8 @@ class TileItem(QGraphicsItem):
             outline = QPen(SELECTED, 4)
         elif self.over_limit:
             outline = QPen(OVER_LIMIT, 3.5)
+        elif self.state == BELOW:
+            outline = QPen(QColor("#2e3644"), 1.2)
         else:
             outline = QPen(QColor("#1d1d1d"), 1.8)
         painter.setPen(outline)
@@ -71,6 +83,15 @@ class TileItem(QGraphicsItem):
             painter.drawText(rect, Qt.AlignCenter, str(self.layer))
 
 
+def _blend(colour, other, amount):
+    """Mix amount (0 to 1) of other into colour."""
+    return QColor(
+        round(colour.red() + (other.red() - colour.red()) * amount),
+        round(colour.green() + (other.green() - colour.green()) * amount),
+        round(colour.blue() + (other.blue() - colour.blue()) * amount),
+    )
+
+
 class MapView(QGraphicsView):
     changed = Signal()  # the map was edited
     message = Signal(str)  # something to show in the status bar
@@ -80,8 +101,7 @@ class MapView(QGraphicsView):
         super().__init__(parent)
         self.setScene(QGraphicsScene(self))
         self.setRenderHint(QPainter.Antialiasing)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setTransform(QTransform.fromScale(VIEW_SCALE, VIEW_SCALE))
         self.setBackgroundBrush(QColor("#3a3f44"))
         self.setFocusPolicy(Qt.StrongFocus)
         self.viewport().setMouseTracking(True)
@@ -96,6 +116,7 @@ class MapView(QGraphicsView):
         self.grid_item = None
         self.ghost = None
         self.selected_uid = None
+        self.last_placed = None  # (uid, piece_id, rotation) of the newest tile, for right-click copies
         self.carry = None
         self._press = None  # (uid, viewport pos, hex) of a press on a placed tile
 
@@ -105,7 +126,12 @@ class MapView(QGraphicsView):
         self.model = model
         self.history = history
         self.selected_uid = None
+        self.last_placed = None
         self.cancel_carry()
+        self.rebuild()
+
+    def rebuild(self):
+        """Redraw the grid and tiles, after a new map or a change of map size."""
         self._build_grid()
         self.refresh()
 
@@ -136,7 +162,7 @@ class MapView(QGraphicsView):
         scene.addItem(self.grid_item)
         margin = HEX_RADIUS
         scene.setSceneRect(path.boundingRect().adjusted(-margin, -margin, margin, margin))
-        self._fit()
+        self.centerOn(scene.sceneRect().center())
 
     def refresh(self):
         """Redraw every placed tile from the model."""
@@ -153,18 +179,14 @@ class MapView(QGraphicsView):
             item.over_limit = uid in over
             item.selected = uid == self.selected_uid
             if tile.layer > self.active_layer:
+                item.state = ABOVE
                 item.setOpacity(0.25)
+            elif tile.layer < self.active_layer:
+                item.state = BELOW
             if uid == moving:
                 item.setVisible(False)
             scene.addItem(item)
             self.tile_items[uid] = item
-
-    def _fit(self):
-        self.fitInView(self.scene().sceneRect(), Qt.KeepAspectRatio)
-
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self._fit()
 
     def _hex_at(self, viewport_pos):
         point = self.mapToScene(viewport_pos)
@@ -256,10 +278,30 @@ class MapView(QGraphicsView):
         if problem:
             self.message.emit(f"Can't place there: {problem}")
             return
-        tile = PlacedTile(0, carry["piece_id"], q, r, self.active_layer, rotation)
+        self._place(carry["piece_id"], q, r, rotation)
+
+    def _place(self, piece_id, q, r, rotation):
+        """Place a new tile on the current layer and leave it selected for rotating."""
+        tile = PlacedTile(0, piece_id, q, r, self.active_layer, rotation)
         self.history.push(self.model, PlaceCommand(tile))
-        self.selected_uid = None
+        self.selected_uid = tile.uid
+        self.last_placed = (tile.uid, piece_id, rotation)
         self.changed.emit()
+
+    def place_copy(self, viewport_pos):
+        """Right-click: place another of the most recently placed tile at the mouse."""
+        if self.last_placed is None:
+            self.message.emit("Place a tile first, then right-click to place more of it")
+            return
+        uid, piece_id, rotation = self.last_placed
+        if uid in self.model.tiles:
+            rotation = self.model.tiles[uid].rotation  # follow any rotation since it was placed
+        q, r = self._hex_at(viewport_pos)
+        problem = self.model.check(piece_id, q, r, self.active_layer, rotation)
+        if problem:
+            self.message.emit(f"Can't place there: {problem}")
+            return
+        self._place(piece_id, q, r, rotation)
 
     def _update_ghost(self):
         self._remove_ghost()
@@ -327,6 +369,9 @@ class MapView(QGraphicsView):
                 self._update_ghost()
             elif event.button() == Qt.RightButton:
                 self.cancel_carry()
+            return
+        if event.button() == Qt.RightButton:
+            self.place_copy(event.position().toPoint())
             return
         if event.button() != Qt.LeftButton:
             return

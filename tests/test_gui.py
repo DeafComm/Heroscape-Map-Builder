@@ -34,6 +34,7 @@ def window(tmp_path):
 def hex_global(w, col, row):
     view = w.map_view
     x, y = hex_to_pixel(*from_offset(col, row), HEX_RADIUS)
+    view.ensureVisible(x - 1, y - 1, 2, 2, 60, 60)
     return view.viewport().mapToGlobal(view.mapFromScene(x, y))
 
 
@@ -178,3 +179,80 @@ def test_inventory_dialog_lists_sets(window):
 def test_large_map_builds(window):
     window.new_map("large", ask=False)
     assert window.model.size == 80
+
+
+def test_placed_tile_stays_selected_for_rotating(window):
+    w = window
+    drag_from_palette(w, "rotv.grass.3", 10, 10)
+    uid = next(iter(w.model.tiles))
+    assert w.map_view.selected_uid == uid
+    QTest.keyClick(w.map_view, Qt.Key_R)
+    assert w.model.tiles[uid].rotation == 1
+
+
+def test_right_click_places_copy_of_last_tile(window):
+    w = window
+    view = w.map_view
+    drag_from_palette(w, "rotv.water.1", 5, 5)
+    QTest.keyClick(view, Qt.Key_R)
+    for col in (7, 9, 11):
+        pos = view.viewport().mapFromGlobal(hex_global(w, col, 5))
+        QTest.mouseClick(view.viewport(), Qt.RightButton, Qt.NoModifier, pos)
+    tiles = list(w.model.tiles.values())
+    assert [t.piece_id for t in tiles] == ["rotv.water.1"] * 4
+    assert all(t.rotation == 1 for t in tiles)
+    assert view.selected_uid == tiles[-1].uid
+    assert "Used 4" in w.palette.rows["rotv.water.1"].counts_label.text()
+
+
+def test_right_click_with_nothing_placed_does_nothing(window):
+    view = window.map_view
+    pos = view.viewport().mapFromGlobal(hex_global(window, 5, 5))
+    QTest.mouseClick(view.viewport(), Qt.RightButton, Qt.NoModifier, pos)
+    assert not window.model.tiles
+
+
+def test_other_layers_are_tinted(window):
+    from heroscape_builder.gui.map_view import ABOVE, ACTIVE, BELOW
+
+    w = window
+    w.rules_box.setChecked(False)
+    drag_from_palette(w, "rotv.grass.1", 5, 5)
+    w.step_layer(1)
+    drag_from_palette(w, "rotv.grass.1", 8, 5)
+    w.step_layer(1)
+    drag_from_palette(w, "rotv.grass.1", 11, 5)
+    w.step_layer(-1)
+    states = sorted(item.state for item in w.map_view.tile_items.values())
+    assert states == sorted([BELOW, ACTIVE, ABOVE])
+
+
+def test_size_drop_down_changes_map(window):
+    w = window
+    drag_from_palette(w, "rotv.grass.1", 5, 5)
+    w.size_box.setCurrentIndex(w.size_box.findData("large"))
+    assert w.model.size_name == "large"
+    assert len(w.model.tiles) == 1
+    assert w.is_dirty()
+
+
+def test_size_drop_down_refuses_to_cut_off_tiles(window, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    w = window
+    w.size_box.setCurrentIndex(w.size_box.findData("large"))
+    w.rules_box.setChecked(False)
+    drag_from_palette(w, "rotv.grass.1", 70, 70)
+    assert len(w.model.tiles) == 1
+    monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
+    w.size_box.setCurrentIndex(w.size_box.findData("small"))
+    assert w.model.size_name == "large"
+    assert w.size_box.currentData() == "large"
+
+
+def test_new_map_uses_chosen_size(window):
+    w = window
+    w.size_box.setCurrentIndex(w.size_box.findData("large"))
+    w.new_map(ask=False)
+    assert w.model.size_name == "large"
+    assert not w.model.tiles

@@ -206,3 +206,21 @@ def test_load_rejects_bad_files(tmp_path):
         map_from_dict({"format_version": 99}, PIECES)
     with pytest.raises(MapFileError):
         map_from_dict({"format_version": 1, "tiles": [{"piece": "rotv.lava.1", "q": 0, "r": 0, "layer": 1}]}, PIECES)
+
+
+def test_24_hex_rows():
+    from collections import Counter
+
+    piece = {p.id: p for p in PIECES}["rotv.grass.24"]
+    rows = Counter(r for _, r in piece.hexes)
+    assert [rows[r] for r in sorted(rows)] == [6, 5, 5, 3, 3, 2]
+    assert (0, 0) in piece.hexes
+
+
+def test_fits_smaller_map():
+    m = MapModel(PIECES, "large", follow_rules=False)
+    place(m, "rotv.grass.1", 5, 5)
+    assert m.fits("small")
+    place(m, "rotv.grass.1", 60, 60)
+    assert not m.fits("small")
+    assert m.fits("large")
