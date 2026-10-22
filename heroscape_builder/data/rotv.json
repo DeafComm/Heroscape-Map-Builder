@@ -1,0 +1,95 @@
+{
+  "set": "rotv",
+  "pieces": [
+    {
+      "id": "rotv.grass.24",
+      "terrain": "grass",
+      "size": 24,
+      "count": 6
+    },
+    {
+      "id": "rotv.grass.7",
+      "terrain": "grass",
+      "size": 7,
+      "count": 5
+    },
+    {
+      "id": "rotv.grass.3",
+      "terrain": "grass",
+      "size": 3,
+      "count": 5
+    },
+    {
+      "id": "rotv.grass.2",
+      "terrain": "grass",
+      "size": 2,
+      "count": 5
+    },
+    {
+      "id": "rotv.grass.1",
+      "terrain": "grass",
+      "size": 1,
+      "count": 16
+    },
+    {
+      "id": "rotv.rock.24",
+      "terrain": "rock",
+      "size": 24,
+      "count": 2
+    },
+    {
+      "id": "rotv.rock.7",
+      "terrain": "rock",
+      "size": 7,
+      "count": 3
+    },
+    {
+      "id": "rotv.rock.3",
+      "terrain": "rock",
+      "size": 3,
+      "count": 3
+    },
+    {
+      "id": "rotv.rock.2",
+      "terrain": "rock",
+      "size": 2,
+      "count": 3
+    },
+    {
+      "id": "rotv.rock.1",
+      "terrain": "rock",
+      "size": 1,
+      "count": 6
+    },
+    {
+      "id": "rotv.sand.7",
+      "terrain": "sand",
+      "size": 7,
+      "count": 2
+    },
+    {
+      "id": "rotv.sand.3",
+      "terrain": "sand",
+      "size": 3,
+      "count": 2
+    },
+    {
+      "id": "rotv.sand.2",
+      "terrain": "sand",
+      "size": 2,
+      "count": 2
+    },
+    {
+      "id": "rotv.sand.1",
+      "terrain": "sand",
+      "size": 1,
+      "count": 4
+    },
+    {
+      "id": "rotv.water.1",
+      "terrain": "water",
+      "size": 1,
+      "count": 21
+    }
+  ]
+}
