@@ -8,9 +8,9 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
+    QComboBox,
     QFileDialog,
     QHBoxLayout,
-    QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
@@ -77,7 +77,11 @@ class MainWindow(QMainWindow):
         self.rules_box = QCheckBox("Follow game rules")
         self.rules_box.setFocusPolicy(Qt.NoFocus)
         self.rules_box.toggled.connect(self._rules_toggled)
-        self.size_label = QLabel()
+        self.size_box = QComboBox()
+        self.size_box.setFocusPolicy(Qt.NoFocus)
+        for name in MAP_SIZES:
+            self.size_box.addItem(SIZE_LABELS[name], name)
+        self.size_box.currentIndexChanged.connect(self._size_chosen)
 
         bottom = QHBoxLayout()
         bottom.addWidget(QLabel("Layer:"))
@@ -87,7 +91,8 @@ class MainWindow(QMainWindow):
         bottom.addSpacing(24)
         bottom.addWidget(self.rules_box)
         bottom.addStretch(1)
-        bottom.addWidget(self.size_label)
+        bottom.addWidget(QLabel("Map size:"))
+        bottom.addWidget(self.size_box)
 
         right = QVBoxLayout()
         right.addWidget(self.map_view, 1)
@@ -107,7 +112,7 @@ class MainWindow(QMainWindow):
 
     def _build_menus(self):
         file_menu = self.menuBar().addMenu("&File")
-        self._add_action(file_menu, "&New…", QKeySequence.New, self.new_map)
+        self._add_action(file_menu, "&New", QKeySequence.New, lambda: self.new_map())
         self._add_action(file_menu, "&Open…", QKeySequence.Open, self.open_map)
         self._add_action(file_menu, "&Save", QKeySequence.Save, self.save)
         self._add_action(file_menu, "Save &As…", QKeySequence("Ctrl+Shift+S"), self.save_as)
@@ -157,7 +162,7 @@ class MainWindow(QMainWindow):
         self.rules_box.blockSignals(True)
         self.rules_box.setChecked(model.follow_rules)
         self.rules_box.blockSignals(False)
-        self.size_label.setText(f"Map size: {SIZE_LABELS[model.size_name]}")
+        self._show_size(model.size_name)
         self.map_view.owned = self.inventory.owned_counts(self.pieces)
         self.map_view.set_document(model, history)
         self.set_layer(MIN_LAYER)
@@ -251,16 +256,36 @@ class MainWindow(QMainWindow):
             self._map_changed()
 
     def new_map(self, size_name=None, ask=True):
+        """Start an empty map, at the size picked under the map unless one is given."""
         if ask and not self.maybe_save():
             return
-        if ask or size_name not in MAP_SIZES:
-            labels = [SIZE_LABELS[name] for name in MAP_SIZES]
-            current = list(MAP_SIZES).index(DEFAULT_SIZE)
-            label, ok = QInputDialog.getItem(self, "New map", "Map size:", labels, current, False)
-            if not ok:
-                return
-            size_name = list(MAP_SIZES)[labels.index(label)]
+        if size_name not in MAP_SIZES:
+            size_name = self.size_box.currentData() or DEFAULT_SIZE
         self._set_document(MapModel(self.pieces, size_name), History(UNDO_LIMIT), None)
+
+    def _show_size(self, size_name):
+        self.size_box.blockSignals(True)
+        self.size_box.setCurrentIndex(self.size_box.findData(size_name))
+        self.size_box.blockSignals(False)
+
+    def _size_chosen(self, _index):
+        size_name = self.size_box.currentData()
+        if size_name == self.model.size_name:
+            return
+        if not self.model.fits(size_name):
+            QMessageBox.warning(
+                self,
+                "Map too big",
+                f"Some tiles would be off the edge of a {SIZE_LABELS[size_name]} map. "
+                "Move or remove them first.",
+            )
+            self._show_size(self.model.size_name)
+            return
+        self.map_view.cancel_carry()
+        self.model.size_name = size_name
+        self.options_dirty = True
+        self.map_view.rebuild()
+        self._update_title()
 
     def open_map(self):
         if not self.maybe_save():
@@ -338,10 +363,12 @@ class MainWindow(QMainWindow):
             "Controls",
             "<b>Place:</b> drag a piece from the left onto the map. Or click a piece, then click on the map "
             "to place copies; right-click or Esc stops.<br>"
+            "<b>Place another:</b> right-click on the map to place another of the last tile you placed.<br>"
             "<b>Rotate:</b> R (Shift+R the other way) or the mouse wheel, while carrying a piece or with a "
-            "tile selected.<br>"
+            "tile selected. A tile you just placed stays selected.<br>"
             "<b>Move:</b> drag a tile on the current layer.<br>"
             "<b>Remove:</b> select a tile and press Delete, or drag it back to the piece list.<br>"
-            "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer.<br>"
+            "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on "
+            "lower layers turn grey-blue, and tiles on higher layers fade.<br>"
             "<b>Undo / redo:</b> Ctrl+Z / Ctrl+Y (last 20 actions).",
         )

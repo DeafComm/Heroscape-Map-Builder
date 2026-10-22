@@ -68,6 +68,11 @@ class MapModel:
                     return "Water can't go under another tile"
         return None
 
+    def fits(self, size_name):
+        """True if every tile would still be on a map of this size."""
+        size = MAP_SIZES[size_name]
+        return all(in_bounds(q, r, size) for t in self.tiles.values() for q, r in self.cells_of(t))
+
     def supports_others(self, tile):
         """True if any other tile rests on this one."""
         for cq, cr in self.cells_of(tile):

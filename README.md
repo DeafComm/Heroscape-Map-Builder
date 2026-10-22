@@ -13,7 +13,7 @@ A Linux desktop app for building Heroscape maps from the terrain tiles you own.
   Going over is allowed: those tiles get a red outline and the count goes negative.
 - Save and load maps as JSON files (`.hsmap.json`).
 - Undo and redo the last 20 actions.
-- Small (30 × 30), Medium (50 × 50) and Large (80 × 80) maps.
+- Small (30 × 30), Medium (50 × 50) and Large (80 × 80) maps, picked from a drop-down under the map.
 
 ## Running it on Linux Mint
 
@@ -38,7 +38,8 @@ After the first time, start it with `.venv/bin/python -m heroscape_builder` from
 | --- | --- |
 | Place a tile | Drag a piece from the left onto the map |
 | Place several of the same tile | Click a piece, then click on the map for each copy. Right-click or Esc stops |
-| Rotate | R (Shift+R the other way) or the mouse wheel, while carrying a piece or with a tile selected |
+| Place another of the last tile | Right-click on the map. It uses the last tile's piece and rotation |
+| Rotate | R (Shift+R the other way) or the mouse wheel, while carrying a piece or with a tile selected. A tile you just placed stays selected |
 | Select a tile | Click it. Only tiles on the current layer can be selected |
 | Move a tile | Drag it. It stays on its layer |
 | Remove a tile | Select it and press Delete, or drag it back onto the piece list |
@@ -46,7 +47,12 @@ After the first time, start it with `.venv/bin/python -m heroscape_builder` from
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
 | Inventory | The Inventory button above the piece list, or Ctrl+I |
 
-Tiles on layers above the one you're on are drawn faded, so you can see what you're building on.
+Tiles on layers below the one you're on turn grey-blue, and tiles on layers above it are
+faded, so it's clear which layer you're working on.
+
+The map size drop-down under the map changes the size of the current map. File > New starts
+an empty map at that size. If tiles would end up off the edge, the size isn't changed.
+The map scrolls with the scroll bars when it's bigger than the window.
 
 ## Game rules
 
