@@ -2,7 +2,14 @@
 
 from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QTransform
-from PySide6.QtWidgets import QApplication, QGraphicsItem, QGraphicsPathItem, QGraphicsScene, QGraphicsView
+from PySide6.QtWidgets import (
+    QApplication,
+    QGraphicsItem,
+    QGraphicsPathItem,
+    QGraphicsScene,
+    QGraphicsView,
+    QLabel,
+)
 
 from ..hexgrid import from_offset, hex_to_pixel, pixel_to_hex, rotate
 from ..history import GroupCommand, MoveCommand, PlaceCommand, RemoveCommand
@@ -19,8 +26,8 @@ WHITE_WASH_AMOUNT = 0.5
 
 # Scene units are scaled by this at 100% zoom, so a hex is about 22 pixels from centre to corner.
 VIEW_SCALE = 1.08
-MIN_ZOOM = 50
-MAX_ZOOM = 150
+MIN_ZOOM = 75
+MAX_ZOOM = 125
 
 # How a tile relates to the layer being worked on.
 ACTIVE, BELOW, ABOVE = "active", "below", "above"
@@ -75,6 +82,8 @@ class TileItem(QGraphicsItem):
             painter.setPen(QPen(SELECTED, 3 if self.over_limit else 4))
             painter.drawPath(self.path)
 
+        if self.state != ACTIVE:
+            return  # layer numbers only show on the current layer
         font = QFont()
         font.setPixelSize(int(HEX_RADIUS * 0.75))
         font.setBold(True)
@@ -110,11 +119,22 @@ class MapView(QGraphicsView):
         self.viewport().setMouseTracking(True)
         self.zoom = 100
         self.set_zoom(100)
+        self.active_layer = 1
+
+        # The current layer, in a box that sits over the top-left of the map and doesn't zoom.
+        self.layer_badge = QLabel(self)
+        self.layer_badge.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.layer_badge.setAlignment(Qt.AlignCenter)
+        self.layer_badge.setStyleSheet(
+            "QLabel { background: rgba(255, 255, 255, 230); color: #1d1d1d; border: 2px solid #1d1d1d;"
+            " border-radius: 6px; padding: 4px 12px; font-size: 22px; font-weight: bold; }"
+        )
+        self._update_badge()
 
         self.model = None
         self.history = None
-        self.active_layer = 1
         self.owned = {}
+        self.show_over_limit = True  # the Red Border checkbox
         self.palette_widget = None  # dropping a tile here removes it
 
         self.tile_items = {}
@@ -142,8 +162,24 @@ class MapView(QGraphicsView):
 
     def set_active_layer(self, layer):
         self.active_layer = layer
+        self._update_badge()
         self.refresh()
         self._update_ghost()
+
+    def set_show_over_limit(self, show):
+        self.show_over_limit = show
+        self.refresh()
+
+    def _update_badge(self):
+        self.layer_badge.setText(f"Layer {self.active_layer}")
+        self.layer_badge.adjustSize()
+        corner = self.viewport().geometry().topLeft()
+        self.layer_badge.move(corner.x() + 10, corner.y() + 10)
+        self.layer_badge.raise_()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._update_badge()
 
     def set_owned(self, owned):
         self.owned = owned
@@ -187,7 +223,7 @@ class MapView(QGraphicsView):
             scene.removeItem(item)
         self.tile_items = {}
         self.selected = [uid for uid in self.selected if uid in self.model.tiles]
-        over = self.model.over_limit_uids(self.owned)
+        over = self.model.over_limit_uids(self.owned) if self.show_over_limit else set()
         moving = self._moving_uids()
         for uid, tile in self.model.tiles.items():
             item = TileItem(self.model.piece(tile), self.model.cells_of(tile), tile.layer)

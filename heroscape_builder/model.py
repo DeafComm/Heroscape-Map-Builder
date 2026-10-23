@@ -8,6 +8,10 @@ MIN_LAYER = 1
 MAX_LAYER = 15
 
 
+def _blocker_name(piece):
+    return "water" if piece.is_water else "a ruin"
+
+
 @dataclass
 class PlacedTile:
     uid: int
@@ -65,12 +69,13 @@ class MapModel:
                 below = self._cells.get((cq, cr, layer - 1))
                 if below is None or below in ignore:
                     return "Every hex needs a tile underneath it"
-                if self.piece(self.tiles[below]).is_water:
-                    return "Nothing can go on top of water"
-            if piece.is_water:
+                below_piece = self.piece(self.tiles[below])
+                if below_piece.blocks_above:
+                    return f"Nothing can go on top of {_blocker_name(below_piece)}"
+            if piece.blocks_above:
                 above = self._cells.get((cq, cr, layer + 1))
                 if above is not None and above not in ignore:
-                    return "Water can't go under another tile"
+                    return f"{_blocker_name(piece).capitalize()} can't go under another tile"
         return None
 
     def fits(self, size_name):

@@ -23,7 +23,8 @@ def place(model, piece_id, col, row, layer=1, rotation=0):
 
 def test_base_set_counts():
     by_id = {p.id: p for p in PIECES}
-    assert len(PIECES) == 15
+    assert len(PIECES) == 17
+    assert sum(p.category == "trees_ruins" for p in PIECES) == 2
     assert by_id["rotv.grass.24"].count == 6
     assert by_id["rotv.water.1"].count == 21
     assert sum(p.count for p in PIECES if p.terrain == "grass") == 37
@@ -224,3 +225,19 @@ def test_fits_smaller_map():
     place(m, "rotv.grass.1", 60, 60)
     assert not m.fits("small")
     assert m.fits("large")
+
+
+def test_nothing_on_top_of_a_ruin():
+    m = MapModel(PIECES, "small")
+    place(m, "rotv.grass.7", 10, 10)
+    place(m, "rotv.ruin.3", 10, 10, layer=2)
+    t = tile("rotv.grass.1", 10, 10, layer=3)
+    assert m.check(t.piece_id, t.q, t.r, 3, 0) == "Nothing can go on top of a ruin"
+
+
+def test_ruin_cannot_slide_under_a_tile():
+    m = MapModel(PIECES, "small", follow_rules=False)
+    place(m, "rotv.grass.1", 10, 10, layer=2)
+    m.follow_rules = True
+    t = tile("rotv.ruin.2", 10, 10, layer=1)
+    assert m.check(t.piece_id, t.q, t.r, 1, 0) == "A ruin can't go under another tile"
