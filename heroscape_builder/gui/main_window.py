@@ -26,6 +26,7 @@ from ..history import UNDO_LIMIT, History
 from ..inventory import Inventory
 from ..model import MAX_LAYER, MIN_LAYER, MapModel
 from ..pieces import load_pieces, load_sets
+from .armies import ArmyPanel
 from .inventory_dialog import InventoryDialog
 from .map_view import MAX_ZOOM, MIN_ZOOM, MapView
 from .palette import Palette
@@ -120,14 +121,17 @@ class MainWindow(QMainWindow):
         right.addWidget(self.map_view, 1)
         right.addLayout(bottom)
 
+        self.armies = ArmyPanel(self.sets)
+
         central = QWidget()
         layout = QHBoxLayout(central)
         layout.addLayout(left)
         layout.addLayout(right, 1)
+        layout.addWidget(self.armies)
         self.setCentralWidget(central)
         self._build_menus()
 
-        self.resize(1280, 860)
+        self.resize(1440, 900)
         self.new_map(DEFAULT_SIZE, ask=False)
 
     # --- menus --------------------------------------------------------
@@ -398,8 +402,10 @@ class MainWindow(QMainWindow):
             "<b>Move:</b> drag a tile (or the selected tiles) on the current layer.<br>"
             "<b>Remove:</b> select tiles and press Delete, or drag them back to the piece list.<br>"
             "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on "
-            "lower layers get a white wash, and tiles on higher layers fade. Layer numbers show only on the "
+            "lower layers get a white wash that gets stronger the further down they are, and tiles on higher "
+            "layers fade. Layer numbers show only on the "
             "current layer, which is also shown in the top-left corner of the map.<br>"
-            "<b>Red Border:</b> turns the red outline on tiles beyond what you own on or off.<br>"
+            "<b>Red Border:</b> turns the red outline on tiles beyond what you own on or off. It only shows "
+            "on the current layer.<br>"
             "<b>Undo / redo:</b> Ctrl+Z / Ctrl+Y (last 20 actions).",
         )

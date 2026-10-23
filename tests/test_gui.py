@@ -410,3 +410,35 @@ def test_red_border_checkbox(window):
     assert "-1" in w.palette.rows["rotv.sand.7"].counts_label.text()
     assert w.settings.value("red_border") == "false"
     w.red_border_box.setChecked(True)
+
+
+def test_white_wash_grows_with_depth(window):
+    w = window
+    w.rules_box.setChecked(False)
+    for layer, col in ((1, 4), (2, 8), (3, 12)):
+        w.set_layer(layer)
+        drag_from_palette(w, "rotv.grass.1", col, 4)
+    w.set_layer(3)
+    by_layer = {item.layer: item for item in w.map_view.tile_items.values()}
+    assert by_layer[3].wash == 0
+    assert 0 < by_layer[2].wash < by_layer[1].wash
+    assert abs(by_layer[1].wash - 2 * by_layer[2].wash) < 1e-9  # the layer just below is washed half as much
+    w.set_layer(2)
+    by_layer = {item.layer: item for item in w.map_view.tile_items.values()}
+    assert by_layer[1].wash > 0
+
+
+def test_red_border_only_on_current_layer(window):
+    w = window
+    for col in (4, 10, 16):
+        drag_from_palette(w, "rotv.sand.7", col, 4)
+    assert any(item.over_limit for item in w.map_view.tile_items.values())
+    w.step_layer(1)
+    assert not any(item.over_limit for item in w.map_view.tile_items.values())
+
+
+def test_armies_panel_lists_base_set(window):
+    armies = window.armies
+    assert armies.isVisible()
+    assert armies.choice.count() == 1
+    assert "Rise of the Valkyrie" in armies.title.text()

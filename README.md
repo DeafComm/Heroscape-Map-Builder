@@ -53,9 +53,14 @@ After the first time, start it with `.venv/bin/python -m heroscape_builder` from
 | Inventory | The Inventory button above the piece list, or Ctrl+I |
 
 The current layer is shown in a box in the top-left corner of the map, and layer numbers
-only appear on tiles on the current layer. Tiles on layers below the one you're on get a white wash that dulls their colour, and tiles on
-layers above it are faded, so it's clear which layer you're working on. Tiles placed beyond
-what you own keep a thick red outline.
+only appear on tiles on the current layer. Tiles on layers below the one you're on get a white
+wash: the layer just below gets a light wash, and each layer further down gets a heavier one,
+so you can still see where the lower layers are. Tiles on layers above the current one are
+faded. Tiles placed beyond what you own get a thick red outline, shown only while you're on
+their layer.
+
+The Armies panel on the right of the map has a drop-down to choose a set. For now it shows the
+Rise of the Valkyrie title, and the armies will be listed there later.
 
 The map size drop-down under the map changes the size of the current map. File > New starts
 an empty map at that size. If tiles would end up off the edge, the size isn't changed.
