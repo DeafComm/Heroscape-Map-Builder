@@ -119,7 +119,7 @@ def test_off_map_blocked():
 def test_move_ignores_own_cells():
     m = MapModel(PIECES, "small")
     t = place(m, "rotv.grass.7", 10, 10)
-    assert m.check(t.piece_id, t.q, t.r, 1, 1, ignore_uid=t.uid) is None
+    assert m.check(t.piece_id, t.q, t.r, 1, 1, ignore=t.uid) is None
 
 
 def test_used_and_over_limit():

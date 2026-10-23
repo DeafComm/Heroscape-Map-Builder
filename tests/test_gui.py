@@ -256,3 +256,104 @@ def test_new_map_uses_chosen_size(window):
     w.new_map(ask=False)
     assert w.model.size_name == "large"
     assert not w.model.tiles
+
+
+def _vp(w, col, row):
+    return w.map_view.viewport().mapFromGlobal(hex_global(w, col, row))
+
+
+def test_ctrl_click_moves_tiles_as_one_block(window):
+    w = window
+    view = w.map_view
+    drag_from_palette(w, "rotv.grass.1", 10, 10)
+    drag_from_palette(w, "rotv.rock.2", 12, 10)
+    drag_from_palette(w, "rotv.sand.1", 15, 10)  # not selected
+    a, b, c = list(w.model.tiles)
+    QTest.keyClick(view, Qt.Key_Escape)  # the last tile placed starts selected
+    QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.ControlModifier, _vp(w, 10, 10))
+    QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.ControlModifier, _vp(w, 12, 10))
+    assert sorted(view.selected) == sorted([a, b])
+    before = {uid: (t.q, t.r) for uid, t in w.model.tiles.items()}
+    start = _vp(w, 10, 10)
+    end = _vp(w, 10, 14)
+    QTest.mousePress(view.viewport(), Qt.LeftButton, Qt.NoModifier, start)
+    QTest.mouseMove(view.viewport(), start + QPoint(20, 0))
+    QTest.mouseMove(view.viewport(), end)
+    QTest.mouseRelease(view.viewport(), Qt.LeftButton, Qt.NoModifier, end)
+    after = {uid: (t.q, t.r) for uid, t in w.model.tiles.items()}
+    shift = (after[a][0] - before[a][0], after[a][1] - before[a][1])
+    assert shift != (0, 0)
+    assert (after[b][0] - before[b][0], after[b][1] - before[b][1]) == shift
+    assert after[c] == before[c]
+    w.undo()  # one undo step puts both back
+    assert {uid: (t.q, t.r) for uid, t in w.model.tiles.items()} == before
+
+
+def test_plain_click_after_multi_select_selects_one(window):
+    w = window
+    view = w.map_view
+    drag_from_palette(w, "rotv.grass.1", 10, 10)
+    drag_from_palette(w, "rotv.grass.1", 12, 10)
+    a, b = list(w.model.tiles)
+    QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.ControlModifier, _vp(w, 10, 10))
+    assert sorted(view.selected) == sorted([a, b])  # b was selected from being placed
+    QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.NoModifier, _vp(w, 10, 10))
+    assert view.selected == [a]
+
+
+def test_delete_and_rotate_several(window):
+    w = window
+    view = w.map_view
+    drag_from_palette(w, "rotv.grass.1", 10, 10)
+    drag_from_palette(w, "rotv.grass.1", 11, 10)
+    QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.ControlModifier, _vp(w, 10, 10))
+    QTest.keyClick(view, Qt.Key_R)
+    assert len(w.model.tiles) == 2
+    QTest.keyClick(view, Qt.Key_Delete)
+    assert not w.model.tiles
+    w.undo()
+    assert len(w.model.tiles) == 2
+
+
+def test_wheel_scrolls_instead_of_rotating(window):
+    from PySide6.QtCore import QPointF
+    from PySide6.QtGui import QWheelEvent
+
+    w = window
+    view = w.map_view
+    drag_from_palette(w, "rotv.grass.3", 15, 15)
+    uid = next(iter(w.model.tiles))
+
+    def wheel(dy, modifiers=Qt.NoModifier):
+        pos = QPointF(view.viewport().rect().center())
+        event = QWheelEvent(pos, QPointF(view.viewport().mapToGlobal(pos.toPoint())), QPoint(0, 0),
+                            QPoint(0, dy), Qt.NoButton, modifiers, Qt.NoScrollPhase, False)
+        QApplication.sendEvent(view.viewport(), event)
+
+    v, h = view.verticalScrollBar(), view.horizontalScrollBar()
+    v.setValue(v.maximum() // 2)
+    h.setValue(h.maximum() // 2)
+    v0, h0 = v.value(), h.value()
+    wheel(-120)
+    assert v.value() > v0 and h.value() == h0
+    wheel(-120, Qt.ControlModifier)
+    assert h.value() > h0
+    assert w.model.tiles[uid].rotation == 0
+
+
+def test_zoom_slider(window):
+    w = window
+    w.zoom_slider.setValue(150)
+    assert w.map_view.zoom == 150
+    assert abs(w.map_view.transform().m11() - 1.08 * 1.5) < 1e-6
+    w.zoom_slider.setValue(10)  # clamped by the slider
+    assert w.map_view.zoom == 50
+
+
+def test_over_limit_outline_stays_when_not_selected(window):
+    w = window
+    for col in (4, 10, 16):
+        drag_from_palette(w, "rotv.sand.7", col, 4)
+    w.map_view.clear_selection()
+    over = [item for item in w.map_view.tile_items.values() if item.over_limit]
+    assert len(over) == 1 and not over[0].selected
