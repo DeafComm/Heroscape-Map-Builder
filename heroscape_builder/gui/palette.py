@@ -14,7 +14,6 @@ class PieceRow(QFrame):
     def __init__(self, piece, parent=None):
         super().__init__(parent)
         self.piece = piece
-        self.on_wheel = None  # returns True if it used the wheel event
         self.setFrameShape(QFrame.StyledPanel)
         self.setCursor(Qt.OpenHandCursor)
         self.setToolTip("Drag onto the map, or click and then click on the map to place copies")
@@ -49,13 +48,6 @@ class PieceRow(QFrame):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.released.emit(event.globalPosition().toPoint())
-
-    def wheelEvent(self, event):
-        # While dragging a piece the wheel rotates it instead of scrolling the list.
-        if self.on_wheel and self.on_wheel(event.angleDelta().y()):
-            event.accept()
-        else:
-            event.ignore()
 
 
 class Palette(QScrollArea):

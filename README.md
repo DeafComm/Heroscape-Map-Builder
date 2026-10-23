@@ -39,20 +39,24 @@ After the first time, start it with `.venv/bin/python -m heroscape_builder` from
 | Place a tile | Drag a piece from the left onto the map |
 | Place several of the same tile | Click a piece, then click on the map for each copy. Right-click or Esc stops |
 | Place another of the last tile | Right-click on the map. It uses the last tile's piece and rotation |
-| Rotate | R (Shift+R the other way) or the mouse wheel, while carrying a piece or with a tile selected. A tile you just placed stays selected |
+| Rotate | R (Shift+R the other way), while carrying a piece or with tiles selected. A tile you just placed stays selected |
 | Select a tile | Click it. Only tiles on the current layer can be selected |
 | Move a tile | Drag it. It stays on its layer |
-| Remove a tile | Select it and press Delete, or drag it back onto the piece list |
+| Select several tiles | Ctrl+click tiles on the current layer. Drag any of them to move them all as one block, or press R to turn the block |
+| Remove tiles | Select them and press Delete, or drag them back onto the piece list |
+| Scroll the map | Mouse wheel scrolls up and down. Ctrl+wheel scrolls left and right |
+| Zoom | The zoom slider under the map (50% to 150%) |
 | Change layer | + goes up a layer, - goes down, or use the buttons under the map |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
 | Inventory | The Inventory button above the piece list, or Ctrl+I |
 
-Tiles on layers below the one you're on turn grey-blue, and tiles on layers above it are
-faded, so it's clear which layer you're working on.
+Tiles on layers below the one you're on get a white wash that dulls their colour, and tiles on
+layers above it are faded, so it's clear which layer you're working on. Tiles placed beyond
+what you own keep a thick red outline.
 
 The map size drop-down under the map changes the size of the current map. File > New starts
 an empty map at that size. If tiles would end up off the edge, the size isn't changed.
-The map scrolls with the scroll bars when it's bigger than the window.
+The map scrolls with the mouse wheel or the scroll bars when it's bigger than the window.
 
 ## Game rules
 

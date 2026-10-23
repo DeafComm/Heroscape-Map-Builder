@@ -41,8 +41,13 @@ class MapModel:
         uid = self._cells.get((q, r, layer))
         return self.tiles.get(uid)
 
-    def check(self, piece_id, q, r, layer, rotation, ignore_uid=None):
-        """Return None if the piece can go here, or a reason why it can't."""
+    def check(self, piece_id, q, r, layer, rotation, ignore=()):
+        """Return None if the piece can go here, or a reason why it can't.
+
+        Tiles in ignore (a uid or a collection of uids) are treated as already gone,
+        for tiles that are being moved.
+        """
+        ignore = {ignore} if isinstance(ignore, int) else set(ignore)
         piece = self.pieces[piece_id]
         if not MIN_LAYER <= layer <= MAX_LAYER:
             return f"Layers go from {MIN_LAYER} to {MAX_LAYER}"
@@ -51,20 +56,20 @@ class MapModel:
             if not in_bounds(cq, cr, self.size):
                 return "Off the edge of the map"
             other = self._cells.get((cq, cr, layer))
-            if other is not None and other != ignore_uid:
+            if other is not None and other not in ignore:
                 return "Another tile is already there"
         if not self.follow_rules:
             return None
         for cq, cr in cells:
             if layer > MIN_LAYER:
                 below = self._cells.get((cq, cr, layer - 1))
-                if below is None or below == ignore_uid:
+                if below is None or below in ignore:
                     return "Every hex needs a tile underneath it"
                 if self.piece(self.tiles[below]).is_water:
                     return "Nothing can go on top of water"
             if piece.is_water:
                 above = self._cells.get((cq, cr, layer + 1))
-                if above is not None and above != ignore_uid:
+                if above is not None and above not in ignore:
                     return "Water can't go under another tile"
         return None
 

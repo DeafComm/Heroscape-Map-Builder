@@ -5,7 +5,7 @@ from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, Q
 from PySide6.QtWidgets import QApplication, QGraphicsItem, QGraphicsPathItem, QGraphicsScene, QGraphicsView
 
 from ..hexgrid import from_offset, hex_to_pixel, pixel_to_hex, rotate
-from ..history import MoveCommand, PlaceCommand, RemoveCommand
+from ..history import GroupCommand, MoveCommand, PlaceCommand, RemoveCommand
 from ..model import PlacedTile
 from .drawing import HEX_RADIUS, hex_polygon, outline_path, terrain_colour, text_colour
 
@@ -14,10 +14,13 @@ GRID_LINE = QColor("#d6d0c4")
 OVER_LIMIT = QColor("#e01b1b")
 SELECTED = QColor("#ffd400")
 GHOST_OK = QColor("#1f9d3a")
-OTHER_LAYER_TINT = QColor("#5b6b85")  # tiles below the current layer are washed towards this
+WHITE_WASH = QColor("#ffffff")  # tiles below the current layer are washed towards white
+WHITE_WASH_AMOUNT = 0.5
 
-# Scene units are scaled by this, so a hex is drawn about 22 pixels from centre to corner.
+# Scene units are scaled by this at 100% zoom, so a hex is about 22 pixels from centre to corner.
 VIEW_SCALE = 1.08
+MIN_ZOOM = 50
+MAX_ZOOM = 150
 
 # How a tile relates to the layer being worked on.
 ACTIVE, BELOW, ABOVE = "active", "below", "above"
@@ -42,13 +45,13 @@ class TileItem(QGraphicsItem):
         self.setZValue(layer * 10 + (5 if ghost else 0))
 
     def boundingRect(self):
-        return self.path.boundingRect().adjusted(-4, -4, 4, 4)
+        return self.path.boundingRect().adjusted(-5, -5, 5, 5)
 
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.Antialiasing)
         fill = terrain_colour(self.piece.terrain, self.layer)
         if self.state == BELOW:
-            fill = _blend(fill, OTHER_LAYER_TINT, 0.7)
+            fill = _blend(fill, WHITE_WASH, WHITE_WASH_AMOUNT)
         if self.ghost:
             fill.setAlpha(150)
         painter.setPen(QPen(QColor(0, 0, 0, 50), 0.8))
@@ -58,19 +61,18 @@ class TileItem(QGraphicsItem):
 
         if self.ghost:
             outline = QPen(OVER_LIMIT if self.blocked else GHOST_OK, 3, Qt.DashLine)
-        elif self.selected:
-            outline = QPen(SELECTED, 4)
         elif self.over_limit:
-            outline = QPen(OVER_LIMIT, 3.5)
+            outline = QPen(OVER_LIMIT, 6)
         elif self.state == BELOW:
-            outline = QPen(QColor("#2e3644"), 1.2)
+            outline = QPen(QColor("#8a8a8a"), 1.2)
         else:
             outline = QPen(QColor("#1d1d1d"), 1.8)
         painter.setPen(outline)
         painter.setBrush(Qt.NoBrush)
         painter.drawPath(self.path)
-        if self.selected and self.over_limit:
-            painter.setPen(QPen(OVER_LIMIT, 1.5))
+        if self.selected and not self.ghost:
+            # Drawn on top so a tile that is over the inventory keeps its red edge.
+            painter.setPen(QPen(SELECTED, 3 if self.over_limit else 4))
             painter.drawPath(self.path)
 
         font = QFont()
@@ -92,6 +94,8 @@ def _blend(colour, other, amount):
     )
 
 
+
+
 class MapView(QGraphicsView):
     changed = Signal()  # the map was edited
     message = Signal(str)  # something to show in the status bar
@@ -101,10 +105,11 @@ class MapView(QGraphicsView):
         super().__init__(parent)
         self.setScene(QGraphicsScene(self))
         self.setRenderHint(QPainter.Antialiasing)
-        self.setTransform(QTransform.fromScale(VIEW_SCALE, VIEW_SCALE))
         self.setBackgroundBrush(QColor("#3a3f44"))
         self.setFocusPolicy(Qt.StrongFocus)
         self.viewport().setMouseTracking(True)
+        self.zoom = 100
+        self.set_zoom(100)
 
         self.model = None
         self.history = None
@@ -114,8 +119,8 @@ class MapView(QGraphicsView):
 
         self.tile_items = {}
         self.grid_item = None
-        self.ghost = None
-        self.selected_uid = None
+        self.ghosts = []
+        self.selected = []  # uids of selected tiles; the last one is the one clicked most recently
         self.last_placed = None  # (uid, piece_id, rotation) of the newest tile, for right-click copies
         self.carry = None
         self._press = None  # (uid, viewport pos, hex) of a press on a placed tile
@@ -125,7 +130,7 @@ class MapView(QGraphicsView):
     def set_document(self, model, history):
         self.model = model
         self.history = history
-        self.selected_uid = None
+        self.selected = []
         self.last_placed = None
         self.cancel_carry()
         self.rebuild()
@@ -144,11 +149,20 @@ class MapView(QGraphicsView):
         self.owned = owned
         self.refresh()
 
+    def set_zoom(self, percent):
+        """Zoom to percent of the normal tile size, keeping the same spot in the middle."""
+        percent = max(MIN_ZOOM, min(MAX_ZOOM, int(percent)))
+        centre = self.mapToScene(self.viewport().rect().center())
+        self.zoom = percent
+        scale = VIEW_SCALE * percent / 100
+        self.setTransform(QTransform.fromScale(scale, scale))
+        self.centerOn(centre)
+
     def _build_grid(self):
         scene = self.scene()
         scene.clear()
         self.tile_items = {}
-        self.ghost = None
+        self.ghosts = []
         size = self.model.size
         path = QPainterPath()
         for row in range(size):
@@ -172,18 +186,19 @@ class MapView(QGraphicsView):
         for item in self.tile_items.values():
             scene.removeItem(item)
         self.tile_items = {}
+        self.selected = [uid for uid in self.selected if uid in self.model.tiles]
         over = self.model.over_limit_uids(self.owned)
-        moving = self.carry["moving_uid"] if self.carry else None
+        moving = self._moving_uids()
         for uid, tile in self.model.tiles.items():
             item = TileItem(self.model.piece(tile), self.model.cells_of(tile), tile.layer)
             item.over_limit = uid in over
-            item.selected = uid == self.selected_uid
+            item.selected = uid in self.selected
             if tile.layer > self.active_layer:
                 item.state = ABOVE
                 item.setOpacity(0.25)
             elif tile.layer < self.active_layer:
                 item.state = BELOW
-            if uid == moving:
+            if uid in moving:
                 item.setVisible(False)
             scene.addItem(item)
             self.tile_items[uid] = item
@@ -199,37 +214,69 @@ class MapView(QGraphicsView):
         w = self.palette_widget
         return w is not None and w.isVisible() and w.rect().contains(w.mapFromGlobal(global_pos))
 
-    # --- carrying a tile ----------------------------------------------
+    # --- selection ----------------------------------------------------
 
-    def start_carry(self, piece_id, rotation=0, moving_uid=None, grab=(0, 0), sticky=False):
-        """Pick up a piece from the list, or a placed tile to move it."""
+    @property
+    def selected_uid(self):
+        """The most recently clicked selected tile, or None."""
+        return self.selected[-1] if self.selected else None
+
+    def select(self, uids):
+        self.selected = list(uids)
+        self.refresh()
+
+    def clear_selection(self):
+        self.select([])
+
+    # --- carrying tiles -----------------------------------------------
+
+    def start_carry(self, piece_id, rotation=0, grab=(0, 0), sticky=False):
+        """Pick up a new piece from the piece list."""
         self.cancel_carry()
         self.carry = {
             "piece_id": piece_id,
             "rotation": rotation % 6,
-            "moving_uid": moving_uid,
-            "grab": grab,  # offset from the tile's anchor to the hex under the cursor
+            "grab": grab,  # offset from the piece's anchor to the hex under the cursor
+            "members": None,
             "sticky": sticky,  # keeps placing copies until cancelled
             "global_pos": None,
         }
-        if moving_uid is not None:
-            self.tile_items[moving_uid].setVisible(False)
         self.viewport().setCursor(Qt.ClosedHandCursor)
         self.setFocus()
 
+    def start_move(self, uids, grab_hex):
+        """Pick up placed tiles to move them together, holding them at grab_hex."""
+        self.cancel_carry()
+        gq, gr = grab_hex
+        members = []
+        for uid in uids:
+            tile = self.model.tiles[uid]
+            members.append({"uid": uid, "off": (tile.q - gq, tile.r - gr), "rotation": tile.rotation})
+        self.carry = {"piece_id": None, "members": members, "sticky": False, "global_pos": None}
+        for uid in uids:
+            self.tile_items[uid].setVisible(False)
+        self.viewport().setCursor(Qt.ClosedHandCursor)
+        self.setFocus()
+
+    def _moving_uids(self):
+        if not self.carry or not self.carry["members"]:
+            return set()
+        return {m["uid"] for m in self.carry["members"]}
+
     def make_sticky(self):
-        if self.carry:
+        if self.carry and self.carry["members"] is None:
             self.carry["sticky"] = True
             self.message.emit("Click on the map to place copies. Right-click or press Esc to stop.")
 
     def cancel_carry(self):
         if not self.carry:
             return
-        moving = self.carry["moving_uid"]
+        moving = self._moving_uids()
         self.carry = None
-        if moving is not None and moving in self.tile_items:
-            self.tile_items[moving].setVisible(True)
-        self._remove_ghost()
+        for uid in moving:
+            if uid in self.tile_items:
+                self.tile_items[uid].setVisible(True)
+        self._remove_ghosts()
         self.viewport().unsetCursor()
 
     def carry_move(self, global_pos):
@@ -243,48 +290,67 @@ class MapView(QGraphicsView):
         if not self.carry:
             return
         carry = self.carry
+        moving = self._moving_uids()
         if self._over_viewport(global_pos):
             self._drop(self.viewport().mapFromGlobal(global_pos))
             if not carry["sticky"]:
                 self.cancel_carry()
-        elif carry["moving_uid"] is not None and self._over_palette(global_pos):
+        elif moving and self._over_palette(global_pos):
             self.cancel_carry()
-            self.delete_tile(carry["moving_uid"])
+            self.delete_tiles(moving)
         else:
             self.cancel_carry()
 
-    def _target(self, viewport_pos):
-        """Anchor hex and rotation for the carried piece at a viewport position."""
+    def _targets(self, viewport_pos):
+        """(piece_id, q, r, layer, rotation, uid) for everything carried, dropped at viewport_pos."""
         q, r = self._hex_at(viewport_pos)
-        gq, gr = self.carry["grab"]
-        return q - gq, r - gr, self.carry["rotation"]
+        carry = self.carry
+        if carry["members"] is None:
+            gq, gr = carry["grab"]
+            return [(carry["piece_id"], q - gq, r - gr, self.active_layer, carry["rotation"], None)]
+        targets = []
+        for m in carry["members"]:
+            tile = self.model.tiles[m["uid"]]
+            oq, orr = m["off"]
+            targets.append((tile.piece_id, q + oq, r + orr, tile.layer, m["rotation"], m["uid"]))
+        return targets
+
+    def _problem(self, targets):
+        ignore = {t[5] for t in targets if t[5] is not None}
+        for piece_id, q, r, layer, rotation, _uid in targets:
+            problem = self.model.check(piece_id, q, r, layer, rotation, ignore=ignore)
+            if problem:
+                return problem
+        return None
 
     def _drop(self, viewport_pos):
-        carry = self.carry
-        q, r, rotation = self._target(viewport_pos)
-        moving = carry["moving_uid"]
-        if moving is not None:
-            tile = self.model.tiles[moving]
-            problem = self.model.check(tile.piece_id, q, r, tile.layer, rotation, ignore_uid=moving)
+        targets = self._targets(viewport_pos)
+        problem = self._problem(targets)
+        if self.carry["members"] is not None:
             if problem:
                 self.message.emit(f"Can't move there: {problem}")
                 return
-            if (q, r, rotation) != (tile.q, tile.r, tile.rotation):
-                self.history.push(self.model, MoveCommand(tile, q, r, rotation))
-                self.selected_uid = moving
+            moves = []
+            for piece_id, q, r, layer, rotation, uid in targets:
+                tile = self.model.tiles[uid]
+                if (q, r, rotation) != (tile.q, tile.r, tile.rotation):
+                    moves.append(MoveCommand(tile, q, r, rotation))
+            if moves:
+                self.history.push(self.model, GroupCommand(moves))
+                self.selected = [t[5] for t in targets]
                 self.changed.emit()
             return
-        problem = self.model.check(carry["piece_id"], q, r, self.active_layer, rotation)
         if problem:
             self.message.emit(f"Can't place there: {problem}")
             return
-        self._place(carry["piece_id"], q, r, rotation)
+        piece_id, q, r, _layer, rotation, _uid = targets[0]
+        self._place(piece_id, q, r, rotation)
 
     def _place(self, piece_id, q, r, rotation):
         """Place a new tile on the current layer and leave it selected for rotating."""
         tile = PlacedTile(0, piece_id, q, r, self.active_layer, rotation)
         self.history.push(self.model, PlaceCommand(tile))
-        self.selected_uid = tile.uid
+        self.selected = [tile.uid]
         self.last_placed = (tile.uid, piece_id, rotation)
         self.changed.emit()
 
@@ -304,81 +370,114 @@ class MapView(QGraphicsView):
         self._place(piece_id, q, r, rotation)
 
     def _update_ghost(self):
-        self._remove_ghost()
+        self._remove_ghosts()
         if not self.carry or self.carry["global_pos"] is None:
             return
         global_pos = self.carry["global_pos"]
         if not self._over_viewport(global_pos):
             return
-        q, r, rotation = self._target(self.viewport().mapFromGlobal(global_pos))
-        piece = self.model.pieces[self.carry["piece_id"]]
-        moving = self.carry["moving_uid"]
-        layer = self.model.tiles[moving].layer if moving is not None else self.active_layer
-        self.ghost = TileItem(piece, piece.cells(q, r, rotation), layer, ghost=True)
-        self.ghost.blocked = self.model.check(piece.id, q, r, layer, rotation, ignore_uid=moving) is not None
-        self.scene().addItem(self.ghost)
+        targets = self._targets(self.viewport().mapFromGlobal(global_pos))
+        blocked = self._problem(targets) is not None
+        for piece_id, q, r, layer, rotation, _uid in targets:
+            piece = self.model.pieces[piece_id]
+            ghost = TileItem(piece, piece.cells(q, r, rotation), layer, ghost=True)
+            ghost.blocked = blocked
+            self.scene().addItem(ghost)
+            self.ghosts.append(ghost)
 
-    def _remove_ghost(self):
-        if self.ghost is not None:
-            self.scene().removeItem(self.ghost)
-            self.ghost = None
+    def _remove_ghosts(self):
+        for ghost in self.ghosts:
+            self.scene().removeItem(ghost)
+        self.ghosts = []
 
     # --- editing placed tiles -----------------------------------------
 
     def rotate(self, steps=1):
+        """Turn what is carried, or the selected tiles as one block, by 60 degree steps."""
         if self.carry:
-            self.carry["rotation"] = (self.carry["rotation"] + steps) % 6
-            self.carry["grab"] = rotate(*self.carry["grab"], steps)
+            if self.carry["members"] is None:
+                self.carry["rotation"] = (self.carry["rotation"] + steps) % 6
+                self.carry["grab"] = rotate(*self.carry["grab"], steps)
+            else:
+                for m in self.carry["members"]:
+                    m["off"] = rotate(*m["off"], steps)
+                    m["rotation"] = (m["rotation"] + steps) % 6
             self._update_ghost()
-        elif self.selected_uid is not None:
-            tile = self.model.tiles[self.selected_uid]
-            rotation = (tile.rotation + steps) % 6
-            problem = self.model.check(tile.piece_id, tile.q, tile.r, tile.layer, rotation, ignore_uid=tile.uid)
-            if problem:
-                self.message.emit(f"Can't rotate: {problem}")
-                return
-            self.history.push(self.model, MoveCommand(tile, tile.q, tile.r, rotation))
-            self.changed.emit()
-
-    def delete_tile(self, uid=None):
-        uid = self.selected_uid if uid is None else uid
-        if uid is None:
             return
-        tile = self.model.tiles[uid]
-        if self.model.follow_rules and self.model.supports_others(tile):
-            self.message.emit("Can't remove a tile with other tiles on top of it")
-            self.refresh()
+        if not self.selected:
             return
-        self.history.push(self.model, RemoveCommand(tile))
-        if self.selected_uid == uid:
-            self.selected_uid = None
+        # Turn around the most recently clicked tile.
+        pivot = self.model.tiles[self.selected_uid]
+        targets = []
+        for uid in self.selected:
+            tile = self.model.tiles[uid]
+            oq, orr = rotate(tile.q - pivot.q, tile.r - pivot.r, steps)
+            targets.append((tile.piece_id, pivot.q + oq, pivot.r + orr, tile.layer, (tile.rotation + steps) % 6, uid))
+        problem = self._problem(targets)
+        if problem:
+            self.message.emit(f"Can't rotate: {problem}")
+            return
+        moves = [MoveCommand(self.model.tiles[t[5]], t[1], t[2], t[4]) for t in targets]
+        self.history.push(self.model, GroupCommand(moves))
         self.changed.emit()
 
-    def clear_selection(self):
-        self.selected_uid = None
-        self.refresh()
+    def delete_tiles(self, uids=None):
+        """Remove the given tiles, or the selected ones."""
+        uids = list(self.selected if uids is None else uids)
+        if not uids:
+            return
+        if self.model.follow_rules:
+            for uid in uids:
+                if self.model.supports_others(self.model.tiles[uid]):
+                    self.message.emit("Can't remove a tile with other tiles on top of it")
+                    self.refresh()
+                    return
+        removes = [RemoveCommand(self.model.tiles[uid]) for uid in uids]
+        self.history.push(self.model, GroupCommand(removes))
+        self.selected = [uid for uid in self.selected if uid not in uids]
+        self.changed.emit()
 
     # --- mouse and keyboard -------------------------------------------
 
     def mousePressEvent(self, event):
         if self.model is None:
             return
+        pos = event.position().toPoint()
         if self.carry:
             if event.button() == Qt.LeftButton and self.carry["sticky"]:
-                self._drop(event.position().toPoint())
+                self._drop(pos)
                 self._update_ghost()
             elif event.button() == Qt.RightButton:
                 self.cancel_carry()
             return
         if event.button() == Qt.RightButton:
-            self.place_copy(event.position().toPoint())
+            self.place_copy(pos)
             return
         if event.button() != Qt.LeftButton:
             return
-        q, r = self._hex_at(event.position().toPoint())
+        q, r = self._hex_at(pos)
         tile = self.model.tile_at(q, r, self.active_layer)
-        self.selected_uid = tile.uid if tile else None
-        self._press = (tile.uid, event.position().toPoint(), (q, r)) if tile else None
+        self._press = None
+        if event.modifiers() & Qt.ControlModifier:
+            # Ctrl+click adds a tile to the selection, or takes it out.
+            if tile:
+                if tile.uid in self.selected:
+                    self.selected.remove(tile.uid)
+                else:
+                    self.selected.append(tile.uid)
+                    self._press = (tile.uid, pos, (q, r))
+            self.refresh()
+            return
+        if tile is None:
+            self.clear_selection()
+            return
+        if tile.uid in self.selected:
+            # Keep a multi-selection so it can be dragged as one block.
+            self.selected.remove(tile.uid)
+            self.selected.append(tile.uid)
+        else:
+            self.selected = [tile.uid]
+        self._press = (tile.uid, pos, (q, r))
         self.refresh()
 
     def mouseMoveEvent(self, event):
@@ -387,28 +486,39 @@ class MapView(QGraphicsView):
             self.carry_move(global_pos)
             return
         if self._press and event.buttons() & Qt.LeftButton:
-            uid, start, (q, r) = self._press
+            _uid, start, grab_hex = self._press
             distance = (event.position().toPoint() - start).manhattanLength()
             if distance >= QApplication.startDragDistance():
                 self._press = None
-                tile = self.model.tiles[uid]
-                self.start_carry(tile.piece_id, tile.rotation, moving_uid=uid, grab=(q - tile.q, r - tile.r))
+                self.start_move(list(self.selected), grab_hex)
                 self.carry_move(global_pos)
 
     def mouseReleaseEvent(self, event):
+        if self._press and event.button() == Qt.LeftButton and not event.modifiers() & Qt.ControlModifier:
+            # A plain click without dragging selects just that tile.
+            uid = self._press[0]
+            if self.selected != [uid]:
+                self.select([uid])
         self._press = None
         if self.carry and not self.carry["sticky"] and event.button() == Qt.LeftButton:
             self.carry_release(event.globalPosition().toPoint())
 
     def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-        if delta:
-            self.rotate(1 if delta < 0 else -1)
+        """The wheel scrolls up and down; Ctrl+wheel (or a sideways wheel) scrolls left and right."""
+        dx, dy = event.angleDelta().x(), event.angleDelta().y()
+        if event.modifiers() & Qt.ControlModifier:
+            dx, dy = dx or dy, 0
+        bar_h, bar_v = self.horizontalScrollBar(), self.verticalScrollBar()
+        bar_h.setValue(bar_h.value() - dx)
+        bar_v.setValue(bar_v.value() - dy)
+        if self.carry:
+            self._update_ghost()
+        event.accept()
 
     def leaveEvent(self, event):
         super().leaveEvent(event)
         if self.carry and self.carry["sticky"]:
-            self._remove_ghost()
+            self._remove_ghosts()
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -416,7 +526,7 @@ class MapView(QGraphicsView):
             self.rotate(-1 if event.modifiers() & Qt.ShiftModifier else 1)
         elif key in (Qt.Key_Delete, Qt.Key_Backspace):
             if not self.carry:
-                self.delete_tile()
+                self.delete_tiles()
         elif key == Qt.Key_Escape:
             if self.carry:
                 self.cancel_carry()

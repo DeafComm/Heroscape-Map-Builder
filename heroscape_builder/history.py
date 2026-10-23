@@ -42,6 +42,21 @@ class MoveCommand:
         model.move(self.uid, *self.old)
 
 
+class GroupCommand:
+    """Several commands done and undone as one step."""
+
+    def __init__(self, commands):
+        self.commands = list(commands)
+
+    def do(self, model):
+        for command in self.commands:
+            command.do(model)
+
+    def undo(self, model):
+        for command in reversed(self.commands):
+            command.undo(model)
+
+
 class History:
     def __init__(self, limit=UNDO_LIMIT):
         self.limit = limit

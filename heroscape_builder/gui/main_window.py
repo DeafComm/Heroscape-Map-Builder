@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
     QPushButton,
+    QSlider,
     QVBoxLayout,
     QWidget,
 )
@@ -26,7 +27,7 @@ from ..inventory import Inventory
 from ..model import MAX_LAYER, MIN_LAYER, MapModel
 from ..pieces import load_pieces, load_sets
 from .inventory_dialog import InventoryDialog
-from .map_view import MapView
+from .map_view import MAX_ZOOM, MIN_ZOOM, MapView
 from .palette import Palette
 
 DEFAULT_SIZE = "medium"
@@ -51,7 +52,6 @@ class MainWindow(QMainWindow):
             row.pressed.connect(self._palette_pressed)
             row.dragged.connect(self.map_view.carry_move)
             row.released.connect(self._palette_released)
-            row.on_wheel = self._palette_wheel
         self.map_view.changed.connect(self._map_changed)
         self.map_view.message.connect(lambda text: self.statusBar().showMessage(text, 5000))
         self.map_view.layer_step.connect(self.step_layer)
@@ -77,6 +77,16 @@ class MainWindow(QMainWindow):
         self.rules_box = QCheckBox("Follow game rules")
         self.rules_box.setFocusPolicy(Qt.NoFocus)
         self.rules_box.toggled.connect(self._rules_toggled)
+        self.zoom_slider = QSlider(Qt.Horizontal)
+        self.zoom_slider.setRange(MIN_ZOOM, MAX_ZOOM)
+        self.zoom_slider.setSingleStep(5)
+        self.zoom_slider.setPageStep(10)
+        self.zoom_slider.setValue(100)
+        self.zoom_slider.setFixedWidth(140)
+        self.zoom_slider.setFocusPolicy(Qt.NoFocus)
+        self.zoom_slider.valueChanged.connect(self._zoom_changed)
+        self.zoom_label = QLabel("100%")
+        self.zoom_label.setMinimumWidth(40)
         self.size_box = QComboBox()
         self.size_box.setFocusPolicy(Qt.NoFocus)
         for name in MAP_SIZES:
@@ -91,6 +101,10 @@ class MainWindow(QMainWindow):
         bottom.addSpacing(24)
         bottom.addWidget(self.rules_box)
         bottom.addStretch(1)
+        bottom.addWidget(QLabel("Zoom:"))
+        bottom.addWidget(self.zoom_slider)
+        bottom.addWidget(self.zoom_label)
+        bottom.addSpacing(16)
         bottom.addWidget(QLabel("Map size:"))
         bottom.addWidget(self.size_box)
 
@@ -126,7 +140,7 @@ class MainWindow(QMainWindow):
         edit_menu.addSeparator()
         rotate = self._add_action(edit_menu, "Rotate tile", None, lambda: self.map_view.rotate(1))
         rotate.setText("Rotate tile\tR")
-        delete = self._add_action(edit_menu, "Remove tile", None, lambda: self.map_view.delete_tile())
+        delete = self._add_action(edit_menu, "Remove tile", None, lambda: self.map_view.delete_tiles())
         delete.setText("Remove tile\tDel")
         edit_menu.addSeparator()
         self._add_action(edit_menu, "&Inventory…", QKeySequence("Ctrl+I"), self.edit_inventory)
@@ -189,7 +203,7 @@ class MainWindow(QMainWindow):
         self.layer_label.setText(f"<b>{layer}</b> of {MAX_LAYER}")
         self.layer_down.setEnabled(layer > MIN_LAYER)
         self.layer_up.setEnabled(layer < MAX_LAYER)
-        self.map_view.selected_uid = None
+        self.map_view.selected = []
         self.map_view.set_active_layer(layer)
 
     def step_layer(self, step):
@@ -226,24 +240,18 @@ class MainWindow(QMainWindow):
         else:
             self.map_view.carry_release(global_pos)
 
-    def _palette_wheel(self, delta):
-        if not self.map_view.carry or not delta:
-            return False
-        self.map_view.rotate(1 if delta < 0 else -1)
-        return True
-
     # --- commands -----------------------------------------------------
 
     def undo(self):
         self.map_view.cancel_carry()
         self.history.undo(self.model)
-        self.map_view.selected_uid = None
+        self.map_view.selected = []
         self._map_changed()
 
     def redo(self):
         self.map_view.cancel_carry()
         self.history.redo(self.model)
-        self.map_view.selected_uid = None
+        self.map_view.selected = []
         self._map_changed()
 
     def edit_inventory(self):
@@ -267,6 +275,10 @@ class MainWindow(QMainWindow):
         self.size_box.blockSignals(True)
         self.size_box.setCurrentIndex(self.size_box.findData(size_name))
         self.size_box.blockSignals(False)
+
+    def _zoom_changed(self, percent):
+        self.map_view.set_zoom(percent)
+        self.zoom_label.setText(f"{percent}%")
 
     def _size_chosen(self, _index):
         size_name = self.size_box.currentData()
@@ -364,11 +376,13 @@ class MainWindow(QMainWindow):
             "<b>Place:</b> drag a piece from the left onto the map. Or click a piece, then click on the map "
             "to place copies; right-click or Esc stops.<br>"
             "<b>Place another:</b> right-click on the map to place another of the last tile you placed.<br>"
-            "<b>Rotate:</b> R (Shift+R the other way) or the mouse wheel, while carrying a piece or with a "
-            "tile selected. A tile you just placed stays selected.<br>"
-            "<b>Move:</b> drag a tile on the current layer.<br>"
-            "<b>Remove:</b> select a tile and press Delete, or drag it back to the piece list.<br>"
+            "<b>Rotate:</b> R (Shift+R the other way), while carrying a piece or with tiles selected. "
+            "A tile you just placed stays selected.<br>"
+            "<b>Select several:</b> Ctrl+click tiles on the current layer, then drag them as one block.<br>"
+            "<b>Scroll:</b> mouse wheel up and down, Ctrl+wheel left and right. Zoom with the slider under the map.<br>"
+            "<b>Move:</b> drag a tile (or the selected tiles) on the current layer.<br>"
+            "<b>Remove:</b> select tiles and press Delete, or drag them back to the piece list.<br>"
             "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on "
-            "lower layers turn grey-blue, and tiles on higher layers fade.<br>"
+            "lower layers get a white wash, and tiles on higher layers fade.<br>"
             "<b>Undo / redo:</b> Ctrl+Z / Ctrl+Y (last 20 actions).",
         )
