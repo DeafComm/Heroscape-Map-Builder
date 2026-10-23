@@ -21,8 +21,11 @@ GRID_LINE = QColor("#d6d0c4")
 OVER_LIMIT = QColor("#e01b1b")
 SELECTED = QColor("#ffd400")
 GHOST_OK = QColor("#1f9d3a")
-WHITE_WASH = QColor("#ffffff")  # tiles below the current layer are washed towards white
-WHITE_WASH_AMOUNT = 0.5
+# Tiles below the current layer are washed towards white: the layer just below a little,
+# and each layer further down a little more, up to a limit so the colour still shows.
+WHITE_WASH = QColor("#ffffff")
+WHITE_WASH_STEP = 0.25
+WHITE_WASH_MAX = 0.6
 
 # Scene units are scaled by this at 100% zoom, so a hex is about 22 pixels from centre to corner.
 VIEW_SCALE = 1.08
@@ -46,6 +49,7 @@ class TileItem(QGraphicsItem):
         self.selected = False
         self.blocked = False
         self.state = ACTIVE
+        self.wash = 0.0  # how far the fill is washed towards white, 0 to 1
         self.path = outline_path(cells)
         self.polygons = [hex_polygon(q, r) for q, r in cells]
         self.centres = [QPointF(*hex_to_pixel(q, r, HEX_RADIUS)) for q, r in cells]
@@ -57,8 +61,8 @@ class TileItem(QGraphicsItem):
     def paint(self, painter, option, widget=None):
         painter.setRenderHint(QPainter.Antialiasing)
         fill = terrain_colour(self.piece.terrain, self.layer)
-        if self.state == BELOW:
-            fill = _blend(fill, WHITE_WASH, WHITE_WASH_AMOUNT)
+        if self.wash:
+            fill = _blend(fill, WHITE_WASH, self.wash)
         if self.ghost:
             fill.setAlpha(150)
         painter.setPen(QPen(QColor(0, 0, 0, 50), 0.8))
@@ -71,7 +75,8 @@ class TileItem(QGraphicsItem):
         elif self.over_limit:
             outline = QPen(OVER_LIMIT, 6)
         elif self.state == BELOW:
-            outline = QPen(QColor("#8a8a8a"), 1.2)
+            # Edges fade with the wash, so the layer just below keeps clear outlines.
+            outline = QPen(_blend(QColor("#1d1d1d"), WHITE_WASH, self.wash), 1.5)
         else:
             outline = QPen(QColor("#1d1d1d"), 1.8)
         painter.setPen(outline)
@@ -127,7 +132,7 @@ class MapView(QGraphicsView):
         self.layer_badge.setAlignment(Qt.AlignCenter)
         self.layer_badge.setStyleSheet(
             "QLabel { background: rgba(255, 255, 255, 230); color: #1d1d1d; border: 2px solid #1d1d1d;"
-            " border-radius: 6px; padding: 4px 12px; font-size: 22px; font-weight: bold; }"
+            " border-radius: 8px; padding: 5px 16px; font-size: 30px; font-weight: bold; }"
         )
         self._update_badge()
 
@@ -227,13 +232,15 @@ class MapView(QGraphicsView):
         moving = self._moving_uids()
         for uid, tile in self.model.tiles.items():
             item = TileItem(self.model.piece(tile), self.model.cells_of(tile), tile.layer)
-            item.over_limit = uid in over
+            # Overages only show on the layer being worked on.
+            item.over_limit = uid in over and tile.layer == self.active_layer
             item.selected = uid in self.selected
             if tile.layer > self.active_layer:
                 item.state = ABOVE
                 item.setOpacity(0.25)
             elif tile.layer < self.active_layer:
                 item.state = BELOW
+                item.wash = min(WHITE_WASH_STEP * (self.active_layer - tile.layer), WHITE_WASH_MAX)
             if uid in moving:
                 item.setVisible(False)
             scene.addItem(item)
