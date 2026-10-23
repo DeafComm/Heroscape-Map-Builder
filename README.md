@@ -7,7 +7,7 @@ A Linux desktop app for building Heroscape maps from the terrain tiles you own.
 
 ## What it does (v1)
 
-- Drag land and water tiles from the Rise of the Valkyrie master set onto a hex map.
+- Drag land and water tiles and the two ruins from the Rise of the Valkyrie master set onto a hex map.
 - Build up to 15 layers. You choose the layer you're building on.
 - Track how many of each piece you own, how many the map uses and how many are left.
   Going over is allowed: those tiles get a red outline and the count goes negative.
@@ -45,12 +45,15 @@ After the first time, start it with `.venv/bin/python -m heroscape_builder` from
 | Select several tiles | Ctrl+click tiles on the current layer. Drag any of them to move them all as one block, or press R to turn the block |
 | Remove tiles | Select them and press Delete, or drag them back onto the piece list |
 | Scroll the map | Mouse wheel scrolls up and down. Ctrl+wheel scrolls left and right |
-| Zoom | The zoom slider under the map (50% to 150%) |
+| Zoom | The zoom slider under the map (75% to 125%) |
+| Choose what the piece lists show | Each of the two lists on the left has a drop-down: Terrain, Castle or Trees/Ruins |
+| Turn the red outline on or off | The Red Border checkbox under the map |
 | Change layer | + goes up a layer, - goes down, or use the buttons under the map |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
 | Inventory | The Inventory button above the piece list, or Ctrl+I |
 
-Tiles on layers below the one you're on get a white wash that dulls their colour, and tiles on
+The current layer is shown in a box in the top-left corner of the map, and layer numbers
+only appear on tiles on the current layer. Tiles on layers below the one you're on get a white wash that dulls their colour, and tiles on
 layers above it are faded, so it's clear which layer you're working on. Tiles placed beyond
 what you own keep a thick red outline.
 
@@ -63,7 +66,7 @@ The map scrolls with the mouse wheel or the scroll bars when it's bigger than th
 "Follow game rules" (under the map) is on by default. With it on:
 
 - Every hex of a tile on layer 2 or higher must sit on a tile on the layer below.
-- Water can go beside land or on top of it, but nothing can go on top of water.
+- Water can go beside land or on top of it, but nothing can go on top of water or a ruin.
 - A tile with other tiles resting on it can't be removed until they are.
 
 With it off, tiles can float on any layer. Tiles can never overlap on the same layer.

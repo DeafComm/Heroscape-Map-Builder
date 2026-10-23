@@ -13,7 +13,15 @@ TERRAIN_NAMES = {
     "rock": "Rock",
     "sand": "Sand",
     "water": "Water",
+    "ruin": "Ruin",
 }
+
+# The groups pieces are shown in, as (id, label), in drop-down order.
+CATEGORIES = [
+    ("terrain", "Terrain"),
+    ("castle", "Castle"),
+    ("trees_ruins", "Trees/Ruins"),
+]
 
 
 def _standard_shape(size):
@@ -46,6 +54,7 @@ class PieceType:
     size: int
     count: int
     hexes: tuple
+    category: str = "terrain"
 
     @property
     def name(self):
@@ -54,6 +63,11 @@ class PieceType:
     @property
     def is_water(self):
         return self.terrain == "water"
+
+    @property
+    def blocks_above(self):
+        """Nothing can be stacked on water or ruins."""
+        return self.terrain in ("water", "ruin")
 
     def cells(self, q, r, rotation):
         """The hexes this piece covers with its anchor at (q, r)."""
@@ -96,6 +110,7 @@ def load_pieces():
                     size=p["size"],
                     count=p["count"],
                     hexes=tuple(tuple(h) for h in hexes),
+                    category=p.get("category", "terrain"),
                 )
             )
     return pieces

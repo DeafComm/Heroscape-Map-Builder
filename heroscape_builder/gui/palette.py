@@ -1,8 +1,9 @@
-"""The column of pieces on the left, with owned / used / left counts."""
+"""The piece lists on the left, with owned / used / left counts."""
 
 from PySide6.QtCore import QPoint, Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
+from ..pieces import CATEGORIES
 from .drawing import piece_icon
 
 
@@ -50,24 +51,83 @@ class PieceRow(QFrame):
             self.released.emit(event.globalPosition().toPoint())
 
 
-class Palette(QScrollArea):
-    def __init__(self, pieces, parent=None):
+class PieceList(QWidget):
+    """One piece list, with a drop-down at the top picking which group of pieces it shows."""
+
+    def __init__(self, pieces, category, parent=None):
         super().__init__(parent)
-        self.setWidgetResizable(True)
-        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.setMinimumWidth(300)
+        self.choice = QComboBox()
+        self.choice.setFocusPolicy(Qt.NoFocus)
+        for cat_id, label in CATEGORIES:
+            self.choice.addItem(label, cat_id)
+        self.choice.currentIndexChanged.connect(self._show_category)
+
         content = QWidget()
-        layout = QVBoxLayout(content)
-        layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
+        rows_layout = QVBoxLayout(content)
+        rows_layout.setContentsMargins(4, 4, 4, 4)
+        rows_layout.setSpacing(4)
         self.rows = {}
         for piece in pieces:
             row = PieceRow(piece)
-            layout.addWidget(row)
+            rows_layout.addWidget(row)
             self.rows[piece.id] = row
-        layout.addStretch(1)
-        self.setWidget(content)
+        self.empty_label = QLabel("No pieces of this kind in the sets yet.\nThey'll come with the expansions.")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setStyleSheet("color: #777; padding: 12px;")
+        rows_layout.addWidget(self.empty_label)
+        rows_layout.addStretch(1)
+
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll.setWidget(content)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.choice)
+        layout.addWidget(self.scroll, 1)
+        self.choice.setCurrentIndex(self.choice.findData(category))
+        self._show_category()
+
+    @property
+    def category(self):
+        return self.choice.currentData()
+
+    def _show_category(self, _index=None):
+        shown = 0
+        for row in self.rows.values():
+            visible = row.piece.category == self.category
+            row.setVisible(visible)
+            shown += visible
+        self.empty_label.setVisible(shown == 0)
+
+
+class Palette(QWidget):
+    """The left-hand panel: two piece lists, one above the other."""
+
+    def __init__(self, pieces, parent=None):
+        super().__init__(parent)
+        self.setMinimumWidth(300)
+        self.lists = [PieceList(pieces, "terrain"), PieceList(pieces, "trees_ruins")]
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        for piece_list in self.lists:
+            layout.addWidget(piece_list, 1)
+
+    def all_rows(self):
+        for piece_list in self.lists:
+            yield from piece_list.rows.values()
+
+    @property
+    def rows(self):
+        """For each piece, a row that is showing (from the top list first), if any."""
+        result = {}
+        for piece_list in reversed(self.lists):
+            for piece_id, row in piece_list.rows.items():
+                if row.piece.category == piece_list.category:
+                    result[piece_id] = row
+        return result
 
     def set_counts(self, owned, used):
-        for piece_id, row in self.rows.items():
-            row.set_counts(owned.get(piece_id, 0), used.get(piece_id, 0))
+        for row in self.all_rows():
+            row.set_counts(owned.get(row.piece.id, 0), used.get(row.piece.id, 0))

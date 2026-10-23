@@ -90,6 +90,20 @@
       "terrain": "water",
       "size": 1,
       "count": 21
+    },
+    {
+      "id": "rotv.ruin.3",
+      "terrain": "ruin",
+      "size": 3,
+      "count": 1,
+      "category": "trees_ruins"
+    },
+    {
+      "id": "rotv.ruin.2",
+      "terrain": "ruin",
+      "size": 2,
+      "count": 1,
+      "category": "trees_ruins"
     }
   ]
 }

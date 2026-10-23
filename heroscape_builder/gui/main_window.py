@@ -48,7 +48,7 @@ class MainWindow(QMainWindow):
         self.palette = Palette(self.pieces)
         self.map_view = MapView()
         self.map_view.palette_widget = self.palette
-        for row in self.palette.rows.values():
+        for row in self.palette.all_rows():
             row.pressed.connect(self._palette_pressed)
             row.dragged.connect(self.map_view.carry_move)
             row.released.connect(self._palette_released)
@@ -77,6 +77,12 @@ class MainWindow(QMainWindow):
         self.rules_box = QCheckBox("Follow game rules")
         self.rules_box.setFocusPolicy(Qt.NoFocus)
         self.rules_box.toggled.connect(self._rules_toggled)
+        self.red_border_box = QCheckBox("Red Border")
+        self.red_border_box.setFocusPolicy(Qt.NoFocus)
+        self.red_border_box.setToolTip("Outline tiles placed beyond what you own in red")
+        self.red_border_box.setChecked(self.settings.value("red_border", "true") != "false")
+        self.map_view.set_show_over_limit(self.red_border_box.isChecked())
+        self.red_border_box.toggled.connect(self._red_border_toggled)
         self.zoom_slider = QSlider(Qt.Horizontal)
         self.zoom_slider.setRange(MIN_ZOOM, MAX_ZOOM)
         self.zoom_slider.setSingleStep(5)
@@ -100,6 +106,8 @@ class MainWindow(QMainWindow):
         bottom.addWidget(self.layer_up)
         bottom.addSpacing(24)
         bottom.addWidget(self.rules_box)
+        bottom.addSpacing(12)
+        bottom.addWidget(self.red_border_box)
         bottom.addStretch(1)
         bottom.addWidget(QLabel("Zoom:"))
         bottom.addWidget(self.zoom_slider)
@@ -222,6 +230,11 @@ class MainWindow(QMainWindow):
         self.model.follow_rules = checked
         self.options_dirty = True
         self._update_title()
+        self.map_view.setFocus()
+
+    def _red_border_toggled(self, checked):
+        self.map_view.set_show_over_limit(checked)
+        self.settings.setValue("red_border", "true" if checked else "false")
         self.map_view.setFocus()
 
     # --- placing from the piece list ----------------------------------
@@ -379,10 +392,14 @@ class MainWindow(QMainWindow):
             "<b>Rotate:</b> R (Shift+R the other way), while carrying a piece or with tiles selected. "
             "A tile you just placed stays selected.<br>"
             "<b>Select several:</b> Ctrl+click tiles on the current layer, then drag them as one block.<br>"
-            "<b>Scroll:</b> mouse wheel up and down, Ctrl+wheel left and right. Zoom with the slider under the map.<br>"
+            "<b>Scroll:</b> mouse wheel up and down, Ctrl+wheel left and right. Zoom (75% to 125%) with the "
+            "slider under the map.<br>"
+            "<b>Piece lists:</b> pick Terrain, Castle or Trees/Ruins in the drop-down above each list.<br>"
             "<b>Move:</b> drag a tile (or the selected tiles) on the current layer.<br>"
             "<b>Remove:</b> select tiles and press Delete, or drag them back to the piece list.<br>"
             "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on "
-            "lower layers get a white wash, and tiles on higher layers fade.<br>"
+            "lower layers get a white wash, and tiles on higher layers fade. Layer numbers show only on the "
+            "current layer, which is also shown in the top-left corner of the map.<br>"
+            "<b>Red Border:</b> turns the red outline on tiles beyond what you own on or off.<br>"
             "<b>Undo / redo:</b> Ctrl+Z / Ctrl+Y (last 20 actions).",
         )

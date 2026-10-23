@@ -13,6 +13,7 @@ TERRAIN_COLOURS = {
     "rock": QColor("#9a9590"),
     "sand": QColor("#e3c977"),
     "water": QColor("#3b86d6"),
+    "ruin": QColor("#b07a4a"),
 }
 
 

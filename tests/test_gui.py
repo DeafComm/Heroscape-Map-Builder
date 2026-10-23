@@ -343,11 +343,11 @@ def test_wheel_scrolls_instead_of_rotating(window):
 
 def test_zoom_slider(window):
     w = window
-    w.zoom_slider.setValue(150)
-    assert w.map_view.zoom == 150
-    assert abs(w.map_view.transform().m11() - 1.08 * 1.5) < 1e-6
+    w.zoom_slider.setValue(125)
+    assert w.map_view.zoom == 125
+    assert abs(w.map_view.transform().m11() - 1.08 * 1.25) < 1e-6
     w.zoom_slider.setValue(10)  # clamped by the slider
-    assert w.map_view.zoom == 50
+    assert w.map_view.zoom == 75
 
 
 def test_over_limit_outline_stays_when_not_selected(window):
@@ -357,3 +357,56 @@ def test_over_limit_outline_stays_when_not_selected(window):
     w.map_view.clear_selection()
     over = [item for item in w.map_view.tile_items.values() if item.over_limit]
     assert len(over) == 1 and not over[0].selected
+
+
+def test_two_piece_lists_with_drop_downs(window):
+    w = window
+    top, bottom = w.palette.lists
+    assert top.category == "terrain" and bottom.category == "trees_ruins"
+    assert top.rows["rotv.grass.7"].isVisible() and not top.rows["rotv.ruin.3"].isVisible()
+    assert bottom.rows["rotv.ruin.3"].isVisible() and not bottom.rows["rotv.grass.7"].isVisible()
+    bottom.choice.setCurrentIndex(bottom.choice.findData("castle"))
+    assert bottom.empty_label.isVisible()
+    assert not any(row.isVisible() for row in bottom.rows.values())
+    top.choice.setCurrentIndex(top.choice.findData("trees_ruins"))
+    assert top.rows["rotv.ruin.2"].isVisible()
+
+
+def test_ruin_from_lower_list_blocks_tiles_above(window):
+    w = window
+    drag_from_palette(w, "rotv.grass.7", 10, 10)
+    w.step_layer(1)
+    drag_from_palette(w, "rotv.ruin.3", 10, 10)
+    assert len(w.model.tiles) == 2
+    assert "Used 1" in w.palette.rows["rotv.ruin.3"].counts_label.text()
+    w.step_layer(1)
+    drag_from_palette(w, "rotv.grass.1", 10, 10)
+    assert len(w.model.tiles) == 2
+
+
+def test_numbers_and_badge_follow_layer(window):
+    from heroscape_builder.gui.map_view import ACTIVE
+
+    w = window
+    w.rules_box.setChecked(False)
+    drag_from_palette(w, "rotv.grass.1", 5, 5)
+    w.step_layer(2)
+    assert w.map_view.layer_badge.text() == "Layer 3"
+    assert w.map_view.layer_badge.isVisible()
+    item = next(iter(w.map_view.tile_items.values()))
+    assert item.state != ACTIVE  # so its number isn't drawn
+    before = w.map_view.layer_badge.size()
+    w.zoom_slider.setValue(125)
+    assert w.map_view.layer_badge.size() == before
+
+
+def test_red_border_checkbox(window):
+    w = window
+    for col in (4, 10, 16):
+        drag_from_palette(w, "rotv.sand.7", col, 4)
+    assert any(item.over_limit for item in w.map_view.tile_items.values())
+    w.red_border_box.setChecked(False)
+    assert not any(item.over_limit for item in w.map_view.tile_items.values())
+    assert "-1" in w.palette.rows["rotv.sand.7"].counts_label.text()
+    assert w.settings.value("red_border") == "false"
+    w.red_border_box.setChecked(True)
