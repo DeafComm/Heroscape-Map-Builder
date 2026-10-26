@@ -51,11 +51,11 @@ def drag_from_palette(w, piece_id, col, row, rotations=0):
 
 def test_place_rotate_undo(window):
     w = window
-    drag_from_palette(w, "rotv.grass.7", 10, 10)
+    drag_from_palette(w, "grass.7", 10, 10)
     assert len(w.model.tiles) == 1
     tile = next(iter(w.model.tiles.values()))
     assert (tile.layer, tile.q, tile.r) == (1, *from_offset(10, 10))
-    assert "Used 1" in w.palette.rows["rotv.grass.7"].counts_label.text()
+    assert "Used 1" in w.palette.rows["grass.7"].counts_label.text()
     assert w.windowTitle().startswith("Untitled*")
     w.undo()
     assert not w.model.tiles
@@ -68,32 +68,32 @@ def test_layer_keys_and_limits(window):
     w.map_view.setFocus()
     QTest.keyClick(w.map_view, Qt.Key_Minus)
     assert w.layer == 1
-    for _ in range(20):
+    for _ in range(25):
         QTest.keyClick(w.map_view, Qt.Key_Plus)
-    assert w.layer == 15
+    assert w.layer == 20
     QTest.keyClick(w.map_view, Qt.Key_Minus)
-    assert w.layer == 14
+    assert w.layer == 19
 
 
 def test_tiles_go_on_selected_layer_only(window):
     w = window
-    drag_from_palette(w, "rotv.grass.7", 10, 10)
-    drag_from_palette(w, "rotv.rock.1", 10, 10)  # same layer, blocked
+    drag_from_palette(w, "grass.7", 10, 10)
+    drag_from_palette(w, "rock.1", 10, 10)  # same layer, blocked
     assert len(w.model.tiles) == 1
     w.step_layer(1)
-    drag_from_palette(w, "rotv.rock.1", 10, 10)
+    drag_from_palette(w, "rock.1", 10, 10)
     assert sorted(t.layer for t in w.model.tiles.values()) == [1, 2]
     w.step_layer(1)
-    drag_from_palette(w, "rotv.sand.3", 20, 20)  # no support on layer 3
+    drag_from_palette(w, "sand.3", 20, 20)  # no support on layer 3
     assert len(w.model.tiles) == 2
     w.rules_box.setChecked(False)
-    drag_from_palette(w, "rotv.sand.3", 20, 20)
+    drag_from_palette(w, "sand.3", 20, 20)
     assert len(w.model.tiles) == 3
 
 
 def test_click_then_place_copies(window):
     w = window
-    palette_row = w.palette.rows["rotv.water.1"]
+    palette_row = w.palette.rows["water.1"]
     QTest.mouseClick(palette_row, Qt.LeftButton)
     assert w.map_view.carry and w.map_view.carry["sticky"]
     view = w.map_view
@@ -110,7 +110,7 @@ def test_click_then_place_copies(window):
 def test_move_select_delete(window):
     w = window
     view = w.map_view
-    drag_from_palette(w, "rotv.rock.3", 10, 10)
+    drag_from_palette(w, "rock.3", 10, 10)
     uid = next(iter(w.model.tiles))
     start = view.viewport().mapFromGlobal(hex_global(w, 10, 10))
     end = view.viewport().mapFromGlobal(hex_global(w, 15, 12))
@@ -130,18 +130,18 @@ def test_move_select_delete(window):
 
 def test_over_inventory_goes_negative(window):
     w = window
-    drag_from_palette(w, "rotv.sand.7", 4, 4)
-    drag_from_palette(w, "rotv.sand.7", 10, 4)
-    drag_from_palette(w, "rotv.sand.7", 16, 4)
+    drag_from_palette(w, "sand.7", 4, 4)
+    drag_from_palette(w, "sand.7", 10, 4)
+    drag_from_palette(w, "sand.7", 16, 4)
     assert len(w.model.tiles) == 3
-    assert "-1" in w.palette.rows["rotv.sand.7"].counts_label.text()
+    assert "-1" in w.palette.rows["sand.7"].counts_label.text()
     over = [item for item in w.map_view.tile_items.values() if item.over_limit]
     assert len(over) == 1
 
 
 def test_save_and_reload(window, tmp_path):
     w = window
-    drag_from_palette(w, "rotv.grass.24", 12, 12, rotations=1)
+    drag_from_palette(w, "grass.24", 12, 12, rotations=1)
     path = str(tmp_path / "test.hsmap.json")
     assert w._write(path)
     assert not w.is_dirty()
@@ -171,7 +171,9 @@ def test_inventory_dialog_lists_sets(window):
     dialog = InventoryDialog(window.sets, window.inventory, window)
     box, copies = dialog.rows["rotv"]
     assert box.isChecked() and box.isEnabled()
-    assert not dialog.rows["rttf"][0].isEnabled()
+    assert not dialog.rows["volcarren"][0].isEnabled()
+    for set_id in ("forest", "marro", "archkyrie"):
+        assert dialog.rows[set_id][0].isEnabled() and not dialog.rows[set_id][0].isChecked()
     copies.setValue(3)
     assert dialog.inventory().copies == {"rotv": 3}
 
@@ -183,7 +185,7 @@ def test_large_map_builds(window):
 
 def test_placed_tile_stays_selected_for_rotating(window):
     w = window
-    drag_from_palette(w, "rotv.grass.3", 10, 10)
+    drag_from_palette(w, "grass.3", 10, 10)
     uid = next(iter(w.model.tiles))
     assert w.map_view.selected_uid == uid
     QTest.keyClick(w.map_view, Qt.Key_R)
@@ -193,16 +195,16 @@ def test_placed_tile_stays_selected_for_rotating(window):
 def test_right_click_places_copy_of_last_tile(window):
     w = window
     view = w.map_view
-    drag_from_palette(w, "rotv.water.1", 5, 5)
+    drag_from_palette(w, "water.1", 5, 5)
     QTest.keyClick(view, Qt.Key_R)
     for col in (7, 9, 11):
         pos = view.viewport().mapFromGlobal(hex_global(w, col, 5))
         QTest.mouseClick(view.viewport(), Qt.RightButton, Qt.NoModifier, pos)
     tiles = list(w.model.tiles.values())
-    assert [t.piece_id for t in tiles] == ["rotv.water.1"] * 4
+    assert [t.piece_id for t in tiles] == ["water.1"] * 4
     assert all(t.rotation == 1 for t in tiles)
     assert view.selected_uid == tiles[-1].uid
-    assert "Used 4" in w.palette.rows["rotv.water.1"].counts_label.text()
+    assert "Used 4" in w.palette.rows["water.1"].counts_label.text()
 
 
 def test_right_click_with_nothing_placed_does_nothing(window):
@@ -217,11 +219,11 @@ def test_other_layers_are_tinted(window):
 
     w = window
     w.rules_box.setChecked(False)
-    drag_from_palette(w, "rotv.grass.1", 5, 5)
+    drag_from_palette(w, "grass.1", 5, 5)
     w.step_layer(1)
-    drag_from_palette(w, "rotv.grass.1", 8, 5)
+    drag_from_palette(w, "grass.1", 8, 5)
     w.step_layer(1)
-    drag_from_palette(w, "rotv.grass.1", 11, 5)
+    drag_from_palette(w, "grass.1", 11, 5)
     w.step_layer(-1)
     states = sorted(item.state for item in w.map_view.tile_items.values())
     assert states == sorted([BELOW, ACTIVE, ABOVE])
@@ -229,7 +231,7 @@ def test_other_layers_are_tinted(window):
 
 def test_size_drop_down_changes_map(window):
     w = window
-    drag_from_palette(w, "rotv.grass.1", 5, 5)
+    drag_from_palette(w, "grass.1", 5, 5)
     w.size_box.setCurrentIndex(w.size_box.findData("large"))
     assert w.model.size_name == "large"
     assert len(w.model.tiles) == 1
@@ -242,7 +244,7 @@ def test_size_drop_down_refuses_to_cut_off_tiles(window, monkeypatch):
     w = window
     w.size_box.setCurrentIndex(w.size_box.findData("large"))
     w.rules_box.setChecked(False)
-    drag_from_palette(w, "rotv.grass.1", 70, 70)
+    drag_from_palette(w, "grass.1", 70, 70)
     assert len(w.model.tiles) == 1
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
     w.size_box.setCurrentIndex(w.size_box.findData("small"))
@@ -265,9 +267,9 @@ def _vp(w, col, row):
 def test_ctrl_click_moves_tiles_as_one_block(window):
     w = window
     view = w.map_view
-    drag_from_palette(w, "rotv.grass.1", 10, 10)
-    drag_from_palette(w, "rotv.rock.2", 12, 10)
-    drag_from_palette(w, "rotv.sand.1", 15, 10)  # not selected
+    drag_from_palette(w, "grass.1", 10, 10)
+    drag_from_palette(w, "rock.2", 12, 10)
+    drag_from_palette(w, "sand.1", 15, 10)  # not selected
     a, b, c = list(w.model.tiles)
     QTest.keyClick(view, Qt.Key_Escape)  # the last tile placed starts selected
     QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.ControlModifier, _vp(w, 10, 10))
@@ -292,8 +294,8 @@ def test_ctrl_click_moves_tiles_as_one_block(window):
 def test_plain_click_after_multi_select_selects_one(window):
     w = window
     view = w.map_view
-    drag_from_palette(w, "rotv.grass.1", 10, 10)
-    drag_from_palette(w, "rotv.grass.1", 12, 10)
+    drag_from_palette(w, "grass.1", 10, 10)
+    drag_from_palette(w, "grass.1", 12, 10)
     a, b = list(w.model.tiles)
     QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.ControlModifier, _vp(w, 10, 10))
     assert sorted(view.selected) == sorted([a, b])  # b was selected from being placed
@@ -304,8 +306,8 @@ def test_plain_click_after_multi_select_selects_one(window):
 def test_delete_and_rotate_several(window):
     w = window
     view = w.map_view
-    drag_from_palette(w, "rotv.grass.1", 10, 10)
-    drag_from_palette(w, "rotv.grass.1", 11, 10)
+    drag_from_palette(w, "grass.1", 10, 10)
+    drag_from_palette(w, "grass.1", 11, 10)
     QTest.mouseClick(view.viewport(), Qt.LeftButton, Qt.ControlModifier, _vp(w, 10, 10))
     QTest.keyClick(view, Qt.Key_R)
     assert len(w.model.tiles) == 2
@@ -321,7 +323,7 @@ def test_wheel_scrolls_instead_of_rotating(window):
 
     w = window
     view = w.map_view
-    drag_from_palette(w, "rotv.grass.3", 15, 15)
+    drag_from_palette(w, "grass.3", 15, 15)
     uid = next(iter(w.model.tiles))
 
     def wheel(dy, modifiers=Qt.NoModifier):
@@ -353,7 +355,7 @@ def test_zoom_slider(window):
 def test_over_limit_outline_stays_when_not_selected(window):
     w = window
     for col in (4, 10, 16):
-        drag_from_palette(w, "rotv.sand.7", col, 4)
+        drag_from_palette(w, "sand.7", col, 4)
     w.map_view.clear_selection()
     over = [item for item in w.map_view.tile_items.values() if item.over_limit]
     assert len(over) == 1 and not over[0].selected
@@ -363,24 +365,26 @@ def test_two_piece_lists_with_drop_downs(window):
     w = window
     top, bottom = w.palette.lists
     assert top.category == "terrain" and bottom.category == "trees_ruins"
-    assert top.rows["rotv.grass.7"].isVisible() and not top.rows["rotv.ruin.3"].isVisible()
-    assert bottom.rows["rotv.ruin.3"].isVisible() and not bottom.rows["rotv.grass.7"].isVisible()
+    assert top.rows["grass.7"].isVisible() and not top.rows["ruin.3"].isVisible()
+    assert bottom.rows["ruin.3"].isVisible() and not bottom.rows["grass.7"].isVisible()
+    assert bottom.rows["tree.15"].isVisible() and bottom.rows["stone_wall"].isVisible()
+    assert top.rows["swamp_water.1"].isVisible() and top.rows["road.5"].isVisible()
     bottom.choice.setCurrentIndex(bottom.choice.findData("castle"))
-    assert bottom.empty_label.isVisible()
-    assert not any(row.isVisible() for row in bottom.rows.values())
+    assert bottom.rows["castle_wall.corner"].isVisible() and bottom.rows["walk.9"].isVisible()
+    assert not bottom.empty_label.isVisible()
     top.choice.setCurrentIndex(top.choice.findData("trees_ruins"))
-    assert top.rows["rotv.ruin.2"].isVisible()
+    assert top.rows["ruin.2"].isVisible()
 
 
 def test_ruin_from_lower_list_blocks_tiles_above(window):
     w = window
-    drag_from_palette(w, "rotv.grass.7", 10, 10)
+    drag_from_palette(w, "grass.7", 10, 10)
     w.step_layer(1)
-    drag_from_palette(w, "rotv.ruin.3", 10, 10)
+    drag_from_palette(w, "ruin.3", 10, 10)
     assert len(w.model.tiles) == 2
-    assert "Used 1" in w.palette.rows["rotv.ruin.3"].counts_label.text()
+    assert "Used 1" in w.palette.rows["ruin.3"].counts_label.text()
     w.step_layer(1)
-    drag_from_palette(w, "rotv.grass.1", 10, 10)
+    drag_from_palette(w, "grass.1", 10, 10)
     assert len(w.model.tiles) == 2
 
 
@@ -389,7 +393,7 @@ def test_numbers_and_badge_follow_layer(window):
 
     w = window
     w.rules_box.setChecked(False)
-    drag_from_palette(w, "rotv.grass.1", 5, 5)
+    drag_from_palette(w, "grass.1", 5, 5)
     w.step_layer(2)
     assert w.map_view.layer_badge.text() == "Layer 3"
     assert w.map_view.layer_badge.isVisible()
@@ -403,11 +407,11 @@ def test_numbers_and_badge_follow_layer(window):
 def test_red_border_checkbox(window):
     w = window
     for col in (4, 10, 16):
-        drag_from_palette(w, "rotv.sand.7", col, 4)
+        drag_from_palette(w, "sand.7", col, 4)
     assert any(item.over_limit for item in w.map_view.tile_items.values())
     w.red_border_box.setChecked(False)
     assert not any(item.over_limit for item in w.map_view.tile_items.values())
-    assert "-1" in w.palette.rows["rotv.sand.7"].counts_label.text()
+    assert "-1" in w.palette.rows["sand.7"].counts_label.text()
     assert w.settings.value("red_border") == "false"
     w.red_border_box.setChecked(True)
 
@@ -417,7 +421,7 @@ def test_white_wash_grows_with_depth(window):
     w.rules_box.setChecked(False)
     for layer, col in ((1, 4), (2, 8), (3, 12)):
         w.set_layer(layer)
-        drag_from_palette(w, "rotv.grass.1", col, 4)
+        drag_from_palette(w, "grass.1", col, 4)
     w.set_layer(3)
     by_layer = {item.layer: item for item in w.map_view.tile_items.values()}
     assert by_layer[3].wash == 0
@@ -431,14 +435,46 @@ def test_white_wash_grows_with_depth(window):
 def test_red_border_only_on_current_layer(window):
     w = window
     for col in (4, 10, 16):
-        drag_from_palette(w, "rotv.sand.7", col, 4)
+        drag_from_palette(w, "sand.7", col, 4)
     assert any(item.over_limit for item in w.map_view.tile_items.values())
     w.step_layer(1)
     assert not any(item.over_limit for item in w.map_view.tile_items.values())
 
 
-def test_armies_panel_lists_base_set(window):
+def test_armies_panel_lists_characters(window):
     armies = window.armies
     assert armies.isVisible()
-    assert armies.choice.count() == 1
+    assert armies.choice.count() == 3  # the castle set has no characters
     assert "Rise of the Valkyrie" in armies.title.text()
+    assert len(armies.character_names) == 16 and "Mimring" in armies.character_names
+    armies.choice.setCurrentIndex(armies.choice.findData("forest"))
+    assert armies.character_names == ["Dumutef Guard"]
+    armies.choice.setCurrentIndex(armies.choice.findData("marro"))
+    assert "Marro Stingers \u00d72" in armies.character_names
+
+
+def test_counted_only_row_cannot_be_dragged(window):
+    w = window
+    row = w.palette.lists[1].rows["battlement"]
+    assert "counted only" in row.counts_label.text()
+    w.palette.lists[1].choice.setCurrentIndex(w.palette.lists[1].choice.findData("castle"))
+    QTest.mousePress(row, Qt.LeftButton)
+    assert w.map_view.carry is None
+    QTest.mouseRelease(row, Qt.LeftButton)
+
+
+def test_castle_built_from_lists(window):
+    w = window
+    drag_from_palette(w, "grass.24", 10, 10)
+    w.palette.lists[1].choice.setCurrentIndex(w.palette.lists[1].choice.findData("castle"))
+    w.step_layer(1)
+    drag_from_palette(w, "castle_wall.straight", 10, 10)
+    assert len(w.model.tiles) == 2
+    wall = [t for t in w.model.tiles.values() if t.piece_id == "castle_wall.straight"][0]
+    # On a higher layer the wall's top number shows, and it can't be picked from there.
+    w.set_layer(6)
+    item = w.map_view.tile_items[wall.uid]
+    assert item.numbers == {(wall.q, wall.r): 12}
+    w.set_layer(13)
+    drag_from_palette(w, "walk.1", 10, 10)
+    assert len(w.model.tiles) == 3

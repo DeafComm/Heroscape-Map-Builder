@@ -403,8 +403,11 @@ class MainWindow(QMainWindow):
             "<b>Remove:</b> select tiles and press Delete, or drag them back to the piece list.<br>"
             "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on "
             "lower layers get a white wash that gets stronger the further down they are, and tiles on higher "
-            "layers fade. Layer numbers show only on the "
-            "current layer, which is also shown in the top-left corner of the map.<br>"
+            "layers fade. Each hex shows the number of the highest layer filled at or below the current "
+            "layer, which is also shown in the top-left corner of the map.<br>"
+            "<b>Tall pieces:</b> trees, castle walls, the doorway and ladders fill several layers. Place them "
+            "on the layer above the tile they stand on; their hexes show their top layer. Wall walks go on "
+            "the layer above a wall's top.<br>"
             "<b>Red Border:</b> turns the red outline on tiles beyond what you own on or off. It only shows "
             "on the current layer.<br>"
             "<b>Undo / redo:</b> Ctrl+Z / Ctrl+Y (last 20 actions).",

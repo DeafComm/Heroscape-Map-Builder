@@ -1,7 +1,7 @@
-"""The armies panel on the right of the map, with a drop-down to pick a set."""
+"""The army builder on the right of the map: a drop-down to pick a set, and its characters."""
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QFrame, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 
 class ArmyPanel(QWidget):
@@ -9,11 +9,11 @@ class ArmyPanel(QWidget):
         super().__init__(parent)
         self.setMinimumWidth(240)
         self.setMaximumWidth(300)
+        self.sets = {s.id: s for s in sets if s.characters}
         self.choice = QComboBox()
         self.choice.setFocusPolicy(Qt.NoFocus)
-        for game_set in sets:
-            if game_set.available:
-                self.choice.addItem(game_set.name, game_set.id)
+        for game_set in self.sets.values():
+            self.choice.addItem(game_set.name, game_set.id)
 
         content = QWidget()
         content_layout = QVBoxLayout(content)
@@ -22,13 +22,12 @@ class ArmyPanel(QWidget):
         self.title.setAlignment(Qt.AlignCenter)
         self.title.setWordWrap(True)
         self.title.setStyleSheet("font-weight: bold; padding: 8px;")
-        self.placeholder = QLabel("Armies for this set will be listed here.")
-        self.placeholder.setAlignment(Qt.AlignCenter)
-        self.placeholder.setWordWrap(True)
-        self.placeholder.setStyleSheet("color: #777; padding: 12px;")
         content_layout.addWidget(self.title)
-        content_layout.addWidget(self.placeholder)
+        self.rows_layout = QVBoxLayout()
+        self.rows_layout.setSpacing(4)
+        content_layout.addLayout(self.rows_layout)
         content_layout.addStretch(1)
+        self.rows = []
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -45,3 +44,20 @@ class ArmyPanel(QWidget):
 
     def _show_set(self, _index=None):
         self.title.setText(self.choice.currentText())
+        for row in self.rows:
+            row.deleteLater()
+        self.rows = []
+        game_set = self.sets.get(self.choice.currentData())
+        if game_set is None:
+            return
+        for name, count in game_set.characters:
+            row = QLabel(f"{name} \u00d7{count}" if count > 1 else name)
+            row.setFrameShape(QFrame.StyledPanel)
+            row.setWordWrap(True)
+            row.setStyleSheet("padding: 6px;")
+            self.rows_layout.addWidget(row)
+            self.rows.append(row)
+
+    @property
+    def character_names(self):
+        return [row.text() for row in self.rows]

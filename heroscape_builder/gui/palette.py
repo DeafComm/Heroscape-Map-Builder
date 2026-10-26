@@ -16,8 +16,11 @@ class PieceRow(QFrame):
         super().__init__(parent)
         self.piece = piece
         self.setFrameShape(QFrame.StyledPanel)
-        self.setCursor(Qt.OpenHandCursor)
-        self.setToolTip("Drag onto the map, or click and then click on the map to place copies")
+        if piece.placeable:
+            self.setCursor(Qt.OpenHandCursor)
+            self.setToolTip("Drag onto the map, or click and then click on the map to place copies")
+        else:
+            self.setToolTip("Counted in your inventory, but not placed on the map")
         icon = QLabel()
         icon.setPixmap(piece_icon(piece))
         icon.setFixedSize(56, 56)
@@ -34,20 +37,23 @@ class PieceRow(QFrame):
         layout.addLayout(text, 1)
 
     def set_counts(self, owned, used):
+        if not self.piece.placeable:
+            self.counts_label.setText(f"Owned {owned} \u00b7 counted only")
+            return
         left = owned - used
         left_text = f"<span style='color:#d01010; font-weight:bold'>{left}</span>" if left < 0 else str(left)
         self.counts_label.setText(f"Owned {owned} \u00b7 Used {used} \u00b7 Left {left_text}")
 
     def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton and self.piece.placeable:
             self.pressed.emit(self.piece.id, event.globalPosition().toPoint())
 
     def mouseMoveEvent(self, event):
-        if event.buttons() & Qt.LeftButton:
+        if event.buttons() & Qt.LeftButton and self.piece.placeable:
             self.dragged.emit(event.globalPosition().toPoint())
 
     def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
+        if event.button() == Qt.LeftButton and self.piece.placeable:
             self.released.emit(event.globalPosition().toPoint())
 
 

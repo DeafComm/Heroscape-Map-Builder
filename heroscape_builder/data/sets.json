@@ -1,13 +1,44 @@
 {
   "sets": [
-    {"id": "rotv", "name": "Rise of the Valkyrie (Master Set)", "pieces_file": "rotv.json"},
-    {"id": "rttf", "name": "Road to the Forge"},
-    {"id": "volcarren", "name": "Volcarren Wasteland"},
-    {"id": "tundra", "name": "Thaelenk Tundra"},
-    {"id": "jungle", "name": "Ticalla Jungle"},
-    {"id": "marro", "name": "Swarm of the Marro (Master Set)"},
-    {"id": "underdark", "name": "Battle for the Underdark (Master Set)"},
-    {"id": "archkyrie", "name": "Fortress of the Archkyrie"},
-    {"id": "aoa", "name": "Age of Annihilation (Master Set)"}
+    {
+      "id": "rotv",
+      "name": "Rise of the Valkyrie (Master Set)",
+      "pieces_file": "rotv.json"
+    },
+    {
+      "id": "forest",
+      "name": "Road to the Forgotten Forest",
+      "pieces_file": "forest.json"
+    },
+    {
+      "id": "volcarren",
+      "name": "Volcarren Wasteland"
+    },
+    {
+      "id": "tundra",
+      "name": "Thaelenk Tundra"
+    },
+    {
+      "id": "jungle",
+      "name": "Ticalla Jungle"
+    },
+    {
+      "id": "marro",
+      "name": "Swarm of the Marro (Master Set)",
+      "pieces_file": "marro.json"
+    },
+    {
+      "id": "underdark",
+      "name": "Battle for the Underdark (Master Set)"
+    },
+    {
+      "id": "archkyrie",
+      "name": "Fortress of the Archkyrie",
+      "pieces_file": "archkyrie.json"
+    },
+    {
+      "id": "aoa",
+      "name": "Age of Annihilation (Master Set)"
+    }
   ]
 }

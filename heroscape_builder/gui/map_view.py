@@ -1,6 +1,6 @@
 """The map space: draws the hex grid and tiles, and handles placing tiles."""
 
-from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import (
     QApplication,
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 from ..hexgrid import from_offset, hex_to_pixel, pixel_to_hex, rotate
 from ..history import GroupCommand, MoveCommand, PlaceCommand, RemoveCommand
 from ..model import PlacedTile
-from .drawing import HEX_RADIUS, hex_polygon, outline_path, terrain_colour, text_colour
+from .drawing import HEX_RADIUS, blend as _blend, hex_polygon, outline_path, paint_details, terrain_colour, text_colour
 
 GRID_FILL = QColor("#f4f1ea")
 GRID_LINE = QColor("#d6d0c4")
@@ -39,11 +39,13 @@ ACTIVE, BELOW, ABOVE = "active", "below", "above"
 class TileItem(QGraphicsItem):
     """A placed tile, or the ghost of a tile being carried."""
 
-    def __init__(self, piece, cells, layer, ghost=False):
+    def __init__(self, piece, q, r, rotation, layer, ghost=False):
         super().__init__()
         self.piece = piece
-        self.cells = cells
+        self.q, self.r, self.rotation = q, r, rotation
+        self.cells = cells = piece.cells(q, r, rotation)
         self.layer = layer
+        self.numbers = {}  # (q, r) -> layer number to show in that hex
         self.ghost = ghost
         self.over_limit = False
         self.selected = False
@@ -52,8 +54,8 @@ class TileItem(QGraphicsItem):
         self.wash = 0.0  # how far the fill is washed towards white, 0 to 1
         self.path = outline_path(cells)
         self.polygons = [hex_polygon(q, r) for q, r in cells]
-        self.centres = [QPointF(*hex_to_pixel(q, r, HEX_RADIUS)) for q, r in cells]
-        self.setZValue(layer * 10 + (5 if ghost else 0))
+        # Tall pieces sit over the tiles beside them.
+        self.setZValue((layer + piece.height - 1) * 10 + (5 if ghost else 0))
 
     def boundingRect(self):
         return self.path.boundingRect().adjusted(-5, -5, 5, 5)
@@ -69,6 +71,7 @@ class TileItem(QGraphicsItem):
         painter.setBrush(fill)
         for polygon in self.polygons:
             painter.drawPolygon(polygon)
+        paint_details(painter, self.piece, self.q, self.r, self.rotation, HEX_RADIUS, self.wash, WHITE_WASH)
 
         if self.ghost:
             outline = QPen(OVER_LIMIT if self.blocked else GHOST_OK, 3, Qt.DashLine)
@@ -87,27 +90,27 @@ class TileItem(QGraphicsItem):
             painter.setPen(QPen(SELECTED, 3 if self.over_limit else 4))
             painter.drawPath(self.path)
 
-        if self.state != ACTIVE:
-            return  # layer numbers only show on the current layer
+        if not self.numbers:
+            return
         font = QFont()
         font.setPixelSize(int(HEX_RADIUS * 0.75))
         font.setBold(True)
         painter.setFont(font)
-        painter.setPen(text_colour(fill))
-        for centre in self.centres:
-            rect = QRectF(centre.x() - HEX_RADIUS, centre.y() - HEX_RADIUS, HEX_RADIUS * 2, HEX_RADIUS * 2)
-            painter.drawText(rect, Qt.AlignCenter, str(self.layer))
-
-
-def _blend(colour, other, amount):
-    """Mix amount (0 to 1) of other into colour."""
-    return QColor(
-        round(colour.red() + (other.red() - colour.red()) * amount),
-        round(colour.green() + (other.green() - colour.green()) * amount),
-        round(colour.blue() + (other.blue() - colour.blue()) * amount),
-    )
-
-
+        for (q, r), number in self.numbers.items():
+            cx, cy = hex_to_pixel(q, r, HEX_RADIUS)
+            rect = QRectF(cx - HEX_RADIUS, cy - HEX_RADIUS, HEX_RADIUS * 2, HEX_RADIUS * 2)
+            # A dark outline keeps the number readable over tree tops and wall lines.
+            path = QPainterPath()
+            path.addText(0, 0, font, str(number))
+            box = path.boundingRect()
+            path.translate(rect.center() - box.center())
+            light = text_colour(fill) == QColor("#ffffff")
+            painter.setPen(QPen(QColor(0, 0, 0, 170) if light else QColor(255, 255, 255, 170), 2.2))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawPath(path)
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(text_colour(fill))
+            painter.drawPath(path)
 
 
 class MapView(QGraphicsView):
@@ -230,8 +233,13 @@ class MapView(QGraphicsView):
         self.selected = [uid for uid in self.selected if uid in self.model.tiles]
         over = self.model.over_limit_uids(self.owned) if self.show_over_limit else set()
         moving = self._moving_uids()
+        # Each hex shows the number of the highest layer filled at or below the current one.
+        numbers = {}
+        for cell, (top, uid) in self.model.top_numbers(self.active_layer).items():
+            numbers.setdefault(uid, {})[cell] = top
         for uid, tile in self.model.tiles.items():
-            item = TileItem(self.model.piece(tile), self.model.cells_of(tile), tile.layer)
+            item = TileItem(self.model.piece(tile), tile.q, tile.r, tile.rotation, tile.layer)
+            item.numbers = numbers.get(uid, {})
             # Overages only show on the layer being worked on.
             item.over_limit = uid in over and tile.layer == self.active_layer
             item.selected = uid in self.selected
@@ -423,7 +431,7 @@ class MapView(QGraphicsView):
         blocked = self._problem(targets) is not None
         for piece_id, q, r, layer, rotation, _uid in targets:
             piece = self.model.pieces[piece_id]
-            ghost = TileItem(piece, piece.cells(q, r, rotation), layer, ghost=True)
+            ghost = TileItem(piece, q, r, rotation, layer, ghost=True)
             ghost.blocked = blocked
             self.scene().addItem(ghost)
             self.ghosts.append(ghost)
@@ -471,8 +479,8 @@ class MapView(QGraphicsView):
             return
         if self.model.follow_rules:
             for uid in uids:
-                if self.model.supports_others(self.model.tiles[uid]):
-                    self.message.emit("Can't remove a tile with other tiles on top of it")
+                if self.model.supports_others(self.model.tiles[uid], ignore=uids):
+                    self.message.emit("Can't remove a piece that other pieces rest on or stand against")
                     self.refresh()
                     return
         removes = [RemoveCommand(self.model.tiles[uid]) for uid in uids]
@@ -500,6 +508,8 @@ class MapView(QGraphicsView):
             return
         q, r = self._hex_at(pos)
         tile = self.model.tile_at(q, r, self.active_layer)
+        if tile is not None and tile.layer != self.active_layer:
+            tile = None  # tall pieces are picked on the layer they stand on
         self._press = None
         if event.modifiers() & Qt.ControlModifier:
             # Ctrl+click adds a tile to the selection, or takes it out.

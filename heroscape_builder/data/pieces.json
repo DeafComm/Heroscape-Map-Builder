@@ -1,0 +1,477 @@
+{
+ "pieces": [
+  {
+   "id": "grass.24",
+   "terrain": "grass",
+   "size": 24
+  },
+  {
+   "id": "grass.7",
+   "terrain": "grass",
+   "size": 7
+  },
+  {
+   "id": "grass.3",
+   "terrain": "grass",
+   "size": 3
+  },
+  {
+   "id": "grass.2",
+   "terrain": "grass",
+   "size": 2
+  },
+  {
+   "id": "grass.1",
+   "terrain": "grass",
+   "size": 1
+  },
+  {
+   "id": "rock.24",
+   "terrain": "rock",
+   "size": 24
+  },
+  {
+   "id": "rock.7",
+   "terrain": "rock",
+   "size": 7
+  },
+  {
+   "id": "rock.3",
+   "terrain": "rock",
+   "size": 3
+  },
+  {
+   "id": "rock.2",
+   "terrain": "rock",
+   "size": 2
+  },
+  {
+   "id": "rock.1",
+   "terrain": "rock",
+   "size": 1
+  },
+  {
+   "id": "sand.7",
+   "terrain": "sand",
+   "size": 7
+  },
+  {
+   "id": "sand.3",
+   "terrain": "sand",
+   "size": 3
+  },
+  {
+   "id": "sand.2",
+   "terrain": "sand",
+   "size": 2
+  },
+  {
+   "id": "sand.1",
+   "terrain": "sand",
+   "size": 1
+  },
+  {
+   "id": "water.1",
+   "terrain": "water",
+   "size": 1
+  },
+  {
+   "id": "road.5",
+   "terrain": "road",
+   "size": 5,
+   "hexes": [
+    [
+     -2,
+     0
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ]
+  },
+  {
+   "id": "road.2",
+   "terrain": "road",
+   "size": 2
+  },
+  {
+   "id": "road.1",
+   "terrain": "road",
+   "size": 1
+  },
+  {
+   "id": "swamp.24",
+   "terrain": "swamp",
+   "size": 24
+  },
+  {
+   "id": "swamp.7",
+   "terrain": "swamp",
+   "size": 7
+  },
+  {
+   "id": "swamp.3",
+   "terrain": "swamp",
+   "size": 3
+  },
+  {
+   "id": "swamp.2",
+   "terrain": "swamp",
+   "size": 2
+  },
+  {
+   "id": "swamp.1",
+   "terrain": "swamp",
+   "size": 1
+  },
+  {
+   "id": "swamp_water.1",
+   "terrain": "swamp_water",
+   "size": 1
+  },
+  {
+   "id": "castle_wall.straight",
+   "terrain": "castle_wall",
+   "size": 1,
+   "kind": "castle_wall",
+   "height": 11,
+   "label": "Castle wall, straight",
+   "walls": [
+    0,
+    3
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "castle_wall.corner",
+   "terrain": "castle_wall",
+   "size": 1,
+   "kind": "castle_wall",
+   "height": 11,
+   "label": "Castle wall, corner",
+   "walls": [
+    0,
+    2
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "castle_wall.end",
+   "terrain": "castle_wall",
+   "size": 1,
+   "kind": "castle_wall",
+   "height": 11,
+   "label": "Castle wall, end",
+   "walls": [
+    0
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "doorway",
+   "terrain": "castle_wall",
+   "size": 3,
+   "kind": "doorway",
+   "height": 11,
+   "label": "Fortress doorway (with door)",
+   "hexes": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "walk.9",
+   "terrain": "walk",
+   "size": 9,
+   "kind": "walk",
+   "label": "Wall walk 9-space",
+   "hexes": [
+    [
+     -2,
+     0
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     -2,
+     1
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "pegs": [
+    [
+     -2,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     -2,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "walk.7",
+   "terrain": "walk",
+   "size": 7,
+   "kind": "walk",
+   "label": "Wall walk 7-space",
+   "hexes": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "pegs": [
+    [
+     -1,
+     0
+    ],
+    [
+     2,
+     0
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     1,
+     1
+    ]
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "walk.1",
+   "terrain": "walk",
+   "size": 1,
+   "kind": "walk",
+   "label": "Wall walk 1-space",
+   "pegs": [
+    [
+     0,
+     0
+    ]
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "ladder",
+   "terrain": "ladder",
+   "size": 1,
+   "kind": "ladder",
+   "height": 11,
+   "uses": 11,
+   "label": "Ladder (11 rungs)",
+   "category": "castle"
+  },
+  {
+   "id": "battlement",
+   "terrain": "castle_wall",
+   "size": 1,
+   "kind": "item",
+   "label": "Battlement",
+   "category": "castle"
+  },
+  {
+   "id": "flag",
+   "terrain": "castle_wall",
+   "size": 1,
+   "kind": "item",
+   "label": "Flag",
+   "category": "castle"
+  },
+  {
+   "id": "tree.10",
+   "terrain": "tree",
+   "size": 1,
+   "kind": "tree",
+   "height": 10,
+   "label": "Tree 1-hex (10 tall)",
+   "category": "trees_ruins"
+  },
+  {
+   "id": "tree.11",
+   "terrain": "tree",
+   "size": 1,
+   "kind": "tree",
+   "height": 11,
+   "label": "Tree 1-hex (11 tall)",
+   "category": "trees_ruins"
+  },
+  {
+   "id": "tree.12",
+   "terrain": "tree",
+   "size": 1,
+   "kind": "tree",
+   "height": 12,
+   "label": "Tree 1-hex (12 tall)",
+   "category": "trees_ruins"
+  },
+  {
+   "id": "tree.15",
+   "terrain": "tree",
+   "size": 3,
+   "kind": "tree",
+   "height": 15,
+   "label": "Tree 3-hex (15 tall)",
+   "hexes": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ]
+   ],
+   "category": "trees_ruins"
+  },
+  {
+   "id": "ruin.3",
+   "terrain": "ruin",
+   "size": 3,
+   "category": "trees_ruins"
+  },
+  {
+   "id": "ruin.2",
+   "terrain": "ruin",
+   "size": 2,
+   "category": "trees_ruins"
+  },
+  {
+   "id": "stone_wall",
+   "terrain": "stone_wall",
+   "size": 4,
+   "kind": "stone_wall",
+   "label": "Stone wall",
+   "hexes": [
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "side": [
+    [
+     -2,
+     1
+    ],
+    [
+     -1,
+     1
+    ],
+    [
+     0,
+     1
+    ],
+    [
+     1,
+     1
+    ],
+    [
+     2,
+     1
+    ]
+   ],
+   "category": "trees_ruins"
+  }
+ ]
+}

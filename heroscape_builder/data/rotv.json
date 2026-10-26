@@ -1,109 +1,87 @@
 {
-  "set": "rotv",
-  "pieces": [
+  "counts": {
+    "grass.24": 6,
+    "grass.7": 5,
+    "grass.3": 5,
+    "grass.2": 5,
+    "grass.1": 16,
+    "rock.24": 2,
+    "rock.7": 3,
+    "rock.3": 3,
+    "rock.2": 3,
+    "rock.1": 6,
+    "sand.7": 2,
+    "sand.3": 2,
+    "sand.2": 2,
+    "sand.1": 4,
+    "water.1": 21,
+    "ruin.3": 1,
+    "ruin.2": 1
+  },
+  "characters": [
     {
-      "id": "rotv.grass.24",
-      "terrain": "grass",
-      "size": 24,
-      "count": 6
+      "name": "Agent Carr",
+      "count": 1
     },
     {
-      "id": "rotv.grass.7",
-      "terrain": "grass",
-      "size": 7,
-      "count": 5
+      "name": "Sgt. Drake Alexander",
+      "count": 1
     },
     {
-      "id": "rotv.grass.3",
-      "terrain": "grass",
-      "size": 3,
-      "count": 5
+      "name": "Syvarris",
+      "count": 1
     },
     {
-      "id": "rotv.grass.2",
-      "terrain": "grass",
-      "size": 2,
-      "count": 5
+      "name": "Ne-Gok-Sa",
+      "count": 1
     },
     {
-      "id": "rotv.grass.1",
-      "terrain": "grass",
-      "size": 1,
-      "count": 16
+      "name": "Izumi Samurai",
+      "count": 1
     },
     {
-      "id": "rotv.rock.24",
-      "terrain": "rock",
-      "size": 24,
-      "count": 2
+      "name": "Tarn Viking Warriors",
+      "count": 1
     },
     {
-      "id": "rotv.rock.7",
-      "terrain": "rock",
-      "size": 7,
-      "count": 3
+      "name": "Airborne Elite",
+      "count": 1
     },
     {
-      "id": "rotv.rock.3",
-      "terrain": "rock",
-      "size": 3,
-      "count": 3
+      "name": "Krav Maga Agents",
+      "count": 1
     },
     {
-      "id": "rotv.rock.2",
-      "terrain": "rock",
-      "size": 2,
-      "count": 3
+      "name": "Marro Warriors",
+      "count": 1
     },
     {
-      "id": "rotv.rock.1",
-      "terrain": "rock",
-      "size": 1,
-      "count": 6
+      "name": "Deathwalker 9000",
+      "count": 1
     },
     {
-      "id": "rotv.sand.7",
-      "terrain": "sand",
-      "size": 7,
-      "count": 2
+      "name": "Grimnak",
+      "count": 1
     },
     {
-      "id": "rotv.sand.3",
-      "terrain": "sand",
-      "size": 3,
-      "count": 2
+      "name": "Finn the Viking Champion",
+      "count": 1
     },
     {
-      "id": "rotv.sand.2",
-      "terrain": "sand",
-      "size": 2,
-      "count": 2
+      "name": "Thorgrim the Viking Champion",
+      "count": 1
     },
     {
-      "id": "rotv.sand.1",
-      "terrain": "sand",
-      "size": 1,
-      "count": 4
+      "name": "Raelin the Kyrie Warrior",
+      "count": 1
     },
     {
-      "id": "rotv.water.1",
-      "terrain": "water",
-      "size": 1,
-      "count": 21
+      "name": "Mimring",
+      "count": 1
     },
     {
-      "id": "rotv.ruin.3",
-      "terrain": "ruin",
-      "size": 3,
-      "count": 1,
-      "category": "trees_ruins"
-    },
-    {
-      "id": "rotv.ruin.2",
-      "terrain": "ruin",
-      "size": 2,
-      "count": 1,
-      "category": "trees_ruins"
+      "name": "Zettian Guards",
+      "count": 1
     }
   ]
 }
