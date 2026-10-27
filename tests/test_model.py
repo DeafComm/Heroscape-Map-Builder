@@ -76,21 +76,21 @@ def test_bounds():
 
 
 def test_no_overlap_on_same_layer():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     place(m, "grass.7", 10, 10)
     t = tile("grass.1", 10, 10)
     assert m.check(t.piece_id, t.q, t.r, 1, 0) is not None
 
 
 def test_overlap_blocked_even_without_rules():
-    m = MapModel(PIECES, "small", follow_rules=False)
+    m = MapModel(PIECES, "medium", follow_rules=False)
     place(m, "grass.7", 10, 10)
     t = tile("grass.1", 10, 10)
     assert m.check(t.piece_id, t.q, t.r, 1, 0) is not None
 
 
 def test_upper_layer_needs_full_support():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     place(m, "grass.1", 10, 10)
     one = tile("rock.1", 10, 10, layer=2)
     assert m.check(one.piece_id, one.q, one.r, 2, 0) is None
@@ -99,13 +99,13 @@ def test_upper_layer_needs_full_support():
 
 
 def test_floating_allowed_without_rules():
-    m = MapModel(PIECES, "small", follow_rules=False)
+    m = MapModel(PIECES, "medium", follow_rules=False)
     t = tile("grass.3", 10, 10, layer=5)
     assert m.check(t.piece_id, t.q, t.r, 5, 0) is None
 
 
 def test_water_on_land_but_nothing_on_water():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     place(m, "grass.1", 10, 10)
     place(m, "water.1", 10, 10, layer=2)
     land = tile("grass.1", 10, 10, layer=3)
@@ -113,7 +113,7 @@ def test_water_on_land_but_nothing_on_water():
 
 
 def test_water_cannot_slide_under_land():
-    m = MapModel(PIECES, "small", follow_rules=False)
+    m = MapModel(PIECES, "medium", follow_rules=False)
     place(m, "grass.1", 10, 10, layer=2)
     m.follow_rules = True
     w = tile("water.1", 10, 10, layer=1)
@@ -121,7 +121,7 @@ def test_water_cannot_slide_under_land():
 
 
 def test_layer_limits():
-    m = MapModel(PIECES, "small", follow_rules=False)
+    m = MapModel(PIECES, "medium", follow_rules=False)
     t = tile("grass.1", 5, 5)
     assert m.check(t.piece_id, t.q, t.r, 0, 0) is not None
     assert m.check(t.piece_id, t.q, t.r, 21, 0) is not None
@@ -132,19 +132,19 @@ def test_layer_limits():
 
 
 def test_off_map_blocked():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     t = tile("grass.2", 29, 0)
     assert m.check(t.piece_id, t.q, t.r, 1, 0) == "Off the edge of the map"
 
 
 def test_move_ignores_own_cells():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     t = place(m, "grass.7", 10, 10)
     assert m.check(t.piece_id, t.q, t.r, 1, 1, ignore=t.uid) is None
 
 
 def test_used_and_over_limit():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     inv = Inventory({"rotv": 1})
     owned = inv.owned_counts(PIECES)
     tiles = [place(m, "sand.7", 3 + i * 4, 5) for i in range(3)]
@@ -174,7 +174,7 @@ def test_undo_redo_and_limit():
 
 
 def test_undo_move_and_remove():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     h = History()
     t = tile("rock.3", 10, 10)
     h.push(m, PlaceCommand(t))
@@ -190,7 +190,7 @@ def test_undo_move_and_remove():
 
 
 def test_dirty_tracking():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     h = History()
     assert not h.dirty
     h.push(m, PlaceCommand(tile("grass.1", 1, 1)))
@@ -242,13 +242,13 @@ def test_fits_smaller_map():
     m = MapModel(PIECES, "large", follow_rules=False)
     place(m, "grass.1", 5, 5)
     assert m.fits("small")
-    place(m, "grass.1", 60, 60)
+    place(m, "grass.1", 30, 30)
     assert not m.fits("small")
     assert m.fits("large")
 
 
 def test_nothing_on_top_of_a_ruin():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     place(m, "grass.7", 10, 10)
     place(m, "ruin.3", 10, 10, layer=2)
     t = tile("grass.1", 10, 10, layer=3)
@@ -256,7 +256,7 @@ def test_nothing_on_top_of_a_ruin():
 
 
 def test_ruin_cannot_slide_under_a_tile():
-    m = MapModel(PIECES, "small", follow_rules=False)
+    m = MapModel(PIECES, "medium", follow_rules=False)
     place(m, "grass.1", 10, 10, layer=2)
     m.follow_rules = True
     t = tile("ruin.2", 10, 10, layer=1)
@@ -268,7 +268,7 @@ def ground(m, col, row, size=24):
 
 
 def test_tree_fills_its_height_and_nothing_goes_over_it():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     ground(m, 10, 10)
     tree = tile("tree.10", 10, 10, layer=2)
     q, r = tree.q, tree.r
@@ -285,20 +285,20 @@ def test_tree_fills_its_height_and_nothing_goes_over_it():
 
 
 def test_tree_cannot_stand_in_water():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     w = place(m, "water.1", 5, 5)
     assert m.check("tree.11", w.q, w.r, 2, 0) == "Nothing can go on top of water"
 
 
 def test_swamp_water_acts_like_water():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     land = place(m, "swamp.7", 10, 10)
     place(m, "swamp_water.1", 10, 10, layer=2)
     assert m.check("road.1", land.q, land.r, 3, 0) == "Nothing can go on top of water"
 
 
 def test_castle_wall_takes_walks_only():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     ground(m, 10, 10)
     wall = place(m, "castle_wall.straight", 10, 10, layer=2)
     assert m.top_of(wall) == 12
@@ -312,7 +312,7 @@ def test_castle_wall_takes_walks_only():
 
 
 def test_wall_walk_pegs_need_walls():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     ground(m, 10, 10)
     walk = PIECES_BY_ID["walk.7"]
     q, r = from_offset(10, 10)
@@ -328,7 +328,7 @@ def test_wall_walk_pegs_need_walls():
 
 
 def test_doorway_holds_a_walk():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     ground(m, 10, 10)
     door = place(m, "doorway", 10, 10, layer=2)
     assert m.check("walk.1", door.q, door.r, 13, 0) is None
@@ -336,7 +336,7 @@ def test_doorway_holds_a_walk():
 
 
 def test_stone_wall_needs_tiles_along_its_length():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     piece = PIECES_BY_ID["stone_wall"]
     q, r = from_offset(10, 10)
     side = piece.side_cells(q, r, 0)
@@ -357,7 +357,7 @@ def test_stone_wall_needs_tiles_along_its_length():
 
 
 def test_stone_wall_up_high_can_have_tiles_under_it():
-    m = MapModel(PIECES, "small", follow_rules=False)
+    m = MapModel(PIECES, "medium", follow_rules=False)
     piece = PIECES_BY_ID["stone_wall"]
     q, r = from_offset(10, 10)
     for cq, cr in piece.cells(q, r, 0):
@@ -370,7 +370,7 @@ def test_stone_wall_up_high_can_have_tiles_under_it():
 
 
 def test_ladder_against_a_wall_uses_eleven_rungs():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     ground(m, 10, 10)
     wall = place(m, "castle_wall.straight", 10, 10, layer=2)
     assert m.check("ladder", wall.q + 2, wall.r, 2, 0) == "A ladder must stand against a castle wall on the same layer"
@@ -386,12 +386,12 @@ def test_ladder_against_a_wall_uses_eleven_rungs():
 
 
 def test_counted_only_items_cannot_be_placed():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     assert "only counted" in m.check("battlement", 3, 3, 1, 0)
 
 
 def test_top_numbers_show_highest_at_or_below_layer():
-    m = MapModel(PIECES, "small")
+    m = MapModel(PIECES, "medium")
     a = place(m, "grass.1", 5, 5)
     place(m, "grass.1", 5, 5, layer=2)
     place(m, "grass.1", 5, 5, layer=3)
@@ -407,3 +407,21 @@ def test_old_map_ids_still_load():
     data = {"format_version": 1, "tiles": [{"piece": "rotv.grass.7", "q": 10, "r": 10, "layer": 1}]}
     model, _ = map_from_dict(data, PIECES)
     assert next(iter(model.tiles.values())).piece_id == "grass.7"
+
+
+def test_five_hex_road_bridges_on_its_ends():
+    m = MapModel(PIECES, "medium")
+    road = PIECES_BY_ID["road.5"]
+    q, r = from_offset(10, 10)
+    cells = road.cells(q, r, 0)
+    m.add(PlacedTile(0, "grass.1", *cells[0], 1))
+    m.add(PlacedTile(0, "water.1", *cells[2], 1))
+    assert m.check("road.5", q, r, 2, 0) == "Every hex needs a tile underneath it"
+    m.add(PlacedTile(0, "grass.1", *cells[-1], 1))
+    assert m.check("road.5", q, r, 2, 0) is None
+    bridge = m.add(PlacedTile(0, "road.5", q, r, 2))
+    # Water can go under the middle of the span later too, but not under an end.
+    assert m.check("swamp_water.1", *cells[1], 1, 0) is None
+    assert m.supports_others(m.tile_at(*cells[0], 1))
+    assert not m.supports_others(m.tile_at(*cells[2], 1))
+    assert bridge.uid in m.tiles

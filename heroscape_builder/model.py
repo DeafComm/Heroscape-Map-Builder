@@ -31,7 +31,7 @@ class PlacedTile:
 
 
 class MapModel:
-    def __init__(self, pieces, size_name="medium", follow_rules=True):
+    def __init__(self, pieces, size_name="small", follow_rules=True):
         self.pieces = {p.id: p for p in pieces}
         self.size_name = size_name
         self.follow_rules = follow_rules
@@ -126,7 +126,8 @@ class MapModel:
                 if level > top:
                     if piece.blocks_column:
                         return f"{_blocker_name(piece).capitalize()} can't go under another tile"
-                    if level == top + 1 and not piece.accepts_on_top(other_piece):
+                    rests_here = (cq, cr) in other_piece.support_cells(other.q, other.r, other.rotation)
+                    if level == top + 1 and rests_here and not piece.accepts_on_top(other_piece):
                         return f"{_blocker_name(piece).capitalize()} can't go under another tile"
         return None
 

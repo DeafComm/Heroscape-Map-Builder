@@ -6,8 +6,33 @@
    "size": 24
   },
   {
+   "id": "swamp.24",
+   "terrain": "swamp",
+   "size": 24
+  },
+  {
+   "id": "rock.24",
+   "terrain": "rock",
+   "size": 24
+  },
+  {
    "id": "grass.7",
    "terrain": "grass",
+   "size": 7
+  },
+  {
+   "id": "swamp.7",
+   "terrain": "swamp",
+   "size": 7
+  },
+  {
+   "id": "rock.7",
+   "terrain": "rock",
+   "size": 7
+  },
+  {
+   "id": "sand.7",
+   "terrain": "sand",
    "size": 7
   },
   {
@@ -16,8 +41,38 @@
    "size": 3
   },
   {
+   "id": "swamp.3",
+   "terrain": "swamp",
+   "size": 3
+  },
+  {
+   "id": "rock.3",
+   "terrain": "rock",
+   "size": 3
+  },
+  {
+   "id": "sand.3",
+   "terrain": "sand",
+   "size": 3
+  },
+  {
    "id": "grass.2",
    "terrain": "grass",
+   "size": 2
+  },
+  {
+   "id": "swamp.2",
+   "terrain": "swamp",
+   "size": 2
+  },
+  {
+   "id": "rock.2",
+   "terrain": "rock",
+   "size": 2
+  },
+  {
+   "id": "sand.2",
+   "terrain": "sand",
    "size": 2
   },
   {
@@ -26,44 +81,14 @@
    "size": 1
   },
   {
-   "id": "rock.24",
-   "terrain": "rock",
-   "size": 24
-  },
-  {
-   "id": "rock.7",
-   "terrain": "rock",
-   "size": 7
-  },
-  {
-   "id": "rock.3",
-   "terrain": "rock",
-   "size": 3
-  },
-  {
-   "id": "rock.2",
-   "terrain": "rock",
-   "size": 2
+   "id": "swamp.1",
+   "terrain": "swamp",
+   "size": 1
   },
   {
    "id": "rock.1",
    "terrain": "rock",
    "size": 1
-  },
-  {
-   "id": "sand.7",
-   "terrain": "sand",
-   "size": 7
-  },
-  {
-   "id": "sand.3",
-   "terrain": "sand",
-   "size": 3
-  },
-  {
-   "id": "sand.2",
-   "terrain": "sand",
-   "size": 2
   },
   {
    "id": "sand.1",
@@ -73,68 +98,6 @@
   {
    "id": "water.1",
    "terrain": "water",
-   "size": 1
-  },
-  {
-   "id": "road.5",
-   "terrain": "road",
-   "size": 5,
-   "hexes": [
-    [
-     -2,
-     0
-    ],
-    [
-     -1,
-     0
-    ],
-    [
-     0,
-     0
-    ],
-    [
-     1,
-     0
-    ],
-    [
-     2,
-     0
-    ]
-   ]
-  },
-  {
-   "id": "road.2",
-   "terrain": "road",
-   "size": 2
-  },
-  {
-   "id": "road.1",
-   "terrain": "road",
-   "size": 1
-  },
-  {
-   "id": "swamp.24",
-   "terrain": "swamp",
-   "size": 24
-  },
-  {
-   "id": "swamp.7",
-   "terrain": "swamp",
-   "size": 7
-  },
-  {
-   "id": "swamp.3",
-   "terrain": "swamp",
-   "size": 3
-  },
-  {
-   "id": "swamp.2",
-   "terrain": "swamp",
-   "size": 2
-  },
-  {
-   "id": "swamp.1",
-   "terrain": "swamp",
    "size": 1
   },
   {
@@ -348,19 +311,61 @@
    "category": "castle"
   },
   {
+   "id": "road.5",
+   "terrain": "road",
+   "size": 5,
+   "hexes": [
+    [
+     -2,
+     0
+    ],
+    [
+     -1,
+     0
+    ],
+    [
+     0,
+     0
+    ],
+    [
+     1,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "pegs": [
+    [
+     -2,
+     0
+    ],
+    [
+     2,
+     0
+    ]
+   ],
+   "category": "castle"
+  },
+  {
+   "id": "road.2",
+   "terrain": "road",
+   "size": 2,
+   "category": "castle"
+  },
+  {
+   "id": "road.1",
+   "terrain": "road",
+   "size": 1,
+   "category": "castle"
+  },
+  {
    "id": "battlement",
    "terrain": "castle_wall",
    "size": 1,
    "kind": "item",
    "label": "Battlement",
-   "category": "castle"
-  },
-  {
-   "id": "flag",
-   "terrain": "castle_wall",
-   "size": 1,
-   "kind": "item",
-   "label": "Flag",
    "category": "castle"
   },
   {

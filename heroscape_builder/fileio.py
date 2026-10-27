@@ -40,7 +40,7 @@ def map_from_dict(data, pieces):
     version = data.get("format_version")
     if not isinstance(version, int) or version > FORMAT_VERSION:
         raise MapFileError("This map was made by a newer version of the app")
-    size = data.get("size", "medium")
+    size = data.get("size", "small")
     if size not in MAP_SIZES:
         raise MapFileError(f"Unknown map size: {size}")
     model = MapModel(pieces, size, bool(data.get("follow_game_rules", True)))

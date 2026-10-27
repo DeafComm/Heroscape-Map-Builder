@@ -22,7 +22,7 @@ TERRAIN_NAMES = {
 # The groups pieces are shown in, as (id, label), in drop-down order.
 CATEGORIES = [
     ("terrain", "Terrain"),
-    ("castle", "Castle"),
+    ("castle", "Castles/Roads"),
     ("trees_ruins", "Trees/Ruins"),
 ]
 
@@ -54,7 +54,8 @@ class PieceType:
     """A kind of piece. The same piece can come in several sets, with a count for each.
 
     kind is what the piece is, which decides its rules:
-      tile         land, road, swamp, water and ruins, one layer thick
+      tile         land, road, swamp, water and ruins, one layer thick; a tile with pegs
+                   (the 5-hex road) only needs support under those hexes
       tree         fills height layers, and nothing can ever go over it
       castle_wall  a base and wall section, height layers tall; only wall walks go on top
       doorway      like a castle wall, three hexes wide
@@ -111,7 +112,7 @@ class PieceType:
 
     def support_offsets(self):
         """The hexes that need something under them."""
-        if self.kind == "walk":
+        if self.pegs:
             return self.pegs
         if self.kind == "stone_wall":
             return ()

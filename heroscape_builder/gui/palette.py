@@ -27,6 +27,9 @@ class PieceRow(QFrame):
         self.name_label = QLabel(f"<b>{piece.name}</b>")
         self.counts_label = QLabel()
         self.counts_label.setTextFormat(Qt.RichText)
+        # Clicks on the picture or the text all go to the row, so dragging works from anywhere on it.
+        for label in (icon, self.name_label, self.counts_label):
+            label.setAttribute(Qt.WA_TransparentForMouseEvents)
         text = QVBoxLayout()
         text.setSpacing(2)
         text.addWidget(self.name_label)

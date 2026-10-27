@@ -5,15 +5,13 @@ from PySide6.QtWidgets import QComboBox, QFrame, QLabel, QScrollArea, QVBoxLayou
 
 
 class ArmyPanel(QWidget):
-    def __init__(self, sets, parent=None):
+    def __init__(self, sets, owned_set_ids=None, parent=None):
         super().__init__(parent)
         self.setMinimumWidth(240)
         self.setMaximumWidth(300)
         self.sets = {s.id: s for s in sets if s.characters}
         self.choice = QComboBox()
         self.choice.setFocusPolicy(Qt.NoFocus)
-        for game_set in self.sets.values():
-            self.choice.addItem(game_set.name, game_set.id)
 
         content = QWidget()
         content_layout = QVBoxLayout(content)
@@ -28,6 +26,11 @@ class ArmyPanel(QWidget):
         content_layout.addLayout(self.rows_layout)
         content_layout.addStretch(1)
         self.rows = []
+        self.empty_label = QLabel("Tick the sets you own in the Inventory window to see their armies here.")
+        self.empty_label.setAlignment(Qt.AlignCenter)
+        self.empty_label.setWordWrap(True)
+        self.empty_label.setStyleSheet("color: #777; padding: 12px;")
+        content_layout.insertWidget(1, self.empty_label)
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -40,6 +43,19 @@ class ArmyPanel(QWidget):
         layout.addWidget(self.choice)
         layout.addWidget(scroll, 1)
         self.choice.currentIndexChanged.connect(self._show_set)
+        self.set_owned(owned_set_ids if owned_set_ids is not None else self.sets)
+
+    def set_owned(self, set_ids):
+        """Only list the sets the user owns, keeping the chosen one if it's still there."""
+        current = self.choice.currentData()
+        self.choice.blockSignals(True)
+        self.choice.clear()
+        for game_set in self.sets.values():
+            if game_set.id in set_ids:
+                self.choice.addItem(game_set.name, game_set.id)
+        index = self.choice.findData(current)
+        self.choice.setCurrentIndex(index if index >= 0 else 0)
+        self.choice.blockSignals(False)
         self._show_set()
 
     def _show_set(self, _index=None):
@@ -48,6 +64,7 @@ class ArmyPanel(QWidget):
             row.deleteLater()
         self.rows = []
         game_set = self.sets.get(self.choice.currentData())
+        self.empty_label.setVisible(game_set is None)
         if game_set is None:
             return
         for name, count in game_set.characters:

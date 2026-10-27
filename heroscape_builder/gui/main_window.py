@@ -7,6 +7,9 @@ from PySide6.QtCore import QPoint, QSettings, Qt
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
+    QButtonGroup,
+    QStackedWidget,
+    QToolButton,
     QCheckBox,
     QComboBox,
     QFileDialog,
@@ -30,8 +33,9 @@ from .armies import ArmyPanel
 from .inventory_dialog import InventoryDialog
 from .map_view import MAX_ZOOM, MIN_ZOOM, MapView
 from .palette import Palette
+from .view3d import Map3DView
 
-DEFAULT_SIZE = "medium"
+DEFAULT_SIZE = "small"
 SIZE_LABELS = {name: f"{name.title()} ({n} × {n})" for name, n in MAP_SIZES.items()}
 
 
@@ -117,11 +121,18 @@ class MainWindow(QMainWindow):
         bottom.addWidget(QLabel("Map size:"))
         bottom.addWidget(self.size_box)
 
+        # The map box holds the 2D editor and the 3D view, with a 2D / 3D switch in its top-right corner.
+        self.view3d = Map3DView()
+        self.map_stack = QStackedWidget()
+        self.map_stack.addWidget(self.map_view)
+        self.map_stack.addWidget(self.view3d)
+        self._build_view_switch()
+
         right = QVBoxLayout()
-        right.addWidget(self.map_view, 1)
+        right.addWidget(self.map_stack, 1)
         right.addLayout(bottom)
 
-        self.armies = ArmyPanel(self.sets)
+        self.armies = ArmyPanel(self.sets, self.inventory.copies)
 
         central = QWidget()
         layout = QHBoxLayout(central)
@@ -133,6 +144,76 @@ class MainWindow(QMainWindow):
 
         self.resize(1440, 900)
         self.new_map(DEFAULT_SIZE, ask=False)
+
+    # --- 2D / 3D ------------------------------------------------------
+
+    def _build_view_switch(self):
+        self.view_switch = QWidget(self.map_stack)
+        self.view_switch.setObjectName("viewSwitch")
+        self.view_switch.setStyleSheet(
+            "#viewSwitch { background: rgba(255, 255, 255, 230); border: 2px solid #1d1d1d; border-radius: 8px; }"
+            " QToolButton { font-weight: bold; padding: 4px 12px; border: none; border-radius: 5px; }"
+            " QToolButton:checked { background: #1d1d1d; color: white; }"
+        )
+        row = QHBoxLayout(self.view_switch)
+        row.setContentsMargins(4, 4, 4, 4)
+        row.setSpacing(4)
+        self.cut_box = QCheckBox("Up to current layer")
+        self.cut_box.setFocusPolicy(Qt.NoFocus)
+        self.cut_box.setToolTip("Only show pieces on the current layer and below")
+        self.cut_box.toggled.connect(self._cut_toggled)
+        self.cut_box.hide()
+        row.addWidget(self.cut_box)
+        self.view_buttons = QButtonGroup(self)
+        for mode in ("2D", "3D"):
+            button = QToolButton()
+            button.setText(mode)
+            button.setCheckable(True)
+            button.setFocusPolicy(Qt.NoFocus)
+            row.addWidget(button)
+            self.view_buttons.addButton(button)
+            if mode == "2D":
+                button.setChecked(True)
+                self.button_2d = button
+            else:
+                button.setToolTip("Look at the map in 3D. Right-drag or Q/E to turn, wheel to zoom, drag to move")
+                self.button_3d = button
+        self.button_3d.toggled.connect(self.set_3d)
+        self.map_stack.installEventFilter(self)
+
+    def eventFilter(self, watched, event):
+        if watched is self.map_stack and event.type() == event.Type.Resize:
+            self._place_view_switch()
+        return super().eventFilter(watched, event)
+
+    def _place_view_switch(self):
+        self.view_switch.adjustSize()
+        # Clear of the 2D view's scroll bar.
+        x = self.map_stack.width() - self.view_switch.width() - 24
+        self.view_switch.move(max(0, x), 10)
+        self.view_switch.raise_()
+
+    @property
+    def in_3d(self):
+        return self.map_stack.currentWidget() is self.view3d
+
+    def set_3d(self, on):
+        """Switch the map box between the 2D editor and the 3D view."""
+        if on:
+            self.map_view.cancel_carry()
+            self.view3d.refresh()
+            self.map_stack.setCurrentWidget(self.view3d)
+            self.view3d.setFocus()
+        else:
+            self.map_stack.setCurrentWidget(self.map_view)
+            self.map_view.setFocus()
+        if self.button_3d.isChecked() != on:
+            self.button_3d.setChecked(on)
+        self.cut_box.setVisible(on)
+        self._place_view_switch()
+
+    def _cut_toggled(self, checked):
+        self.view3d.set_cut_layer(self.layer if checked else None)
 
     # --- menus --------------------------------------------------------
 
@@ -191,11 +272,14 @@ class MainWindow(QMainWindow):
         self._show_size(model.size_name)
         self.map_view.owned = self.inventory.owned_counts(self.pieces)
         self.map_view.set_document(model, history)
+        self.view3d.set_model(model)
         self.set_layer(MIN_LAYER)
         self._map_changed()
 
     def _map_changed(self):
         self.map_view.refresh()
+        if self.in_3d:
+            self.view3d.refresh()
         self.palette.set_counts(self.inventory.owned_counts(self.pieces), self.model.used_counts())
         self.undo_action.setEnabled(self.history.can_undo())
         self.redo_action.setEnabled(self.history.can_redo())
@@ -217,6 +301,8 @@ class MainWindow(QMainWindow):
         self.layer_up.setEnabled(layer < MAX_LAYER)
         self.map_view.selected = []
         self.map_view.set_active_layer(layer)
+        if self.cut_box.isChecked():
+            self.view3d.set_cut_layer(layer)
 
     def step_layer(self, step):
         self.set_layer(self.layer + step)
@@ -244,11 +330,15 @@ class MainWindow(QMainWindow):
     # --- placing from the piece list ----------------------------------
 
     def _palette_pressed(self, piece_id, global_pos):
+        if self.in_3d:
+            return  # the 3D view is only for looking
         self._press_start = QPoint(global_pos)
         self.map_view.start_carry(piece_id)
         self.map_view.carry_move(global_pos)
 
     def _palette_released(self, global_pos):
+        if self.in_3d:
+            return
         start, self._press_start = self._press_start, None
         moved = start is not None and (global_pos - start).manhattanLength() >= QApplication.startDragDistance()
         if not moved and not self.map_view._over_viewport(global_pos):
@@ -278,6 +368,7 @@ class MainWindow(QMainWindow):
             self.settings.setValue("inventory", json.dumps(self.inventory.to_dict()))
             self.settings.sync()
             self.map_view.owned = self.inventory.owned_counts(self.pieces)
+            self.armies.set_owned(self.inventory.copies)
             self._map_changed()
 
     def new_map(self, size_name=None, ask=True):
@@ -314,6 +405,7 @@ class MainWindow(QMainWindow):
         self.model.size_name = size_name
         self.options_dirty = True
         self.map_view.rebuild()
+        self.view3d.set_model(self.model)
         self._update_title()
 
     def open_map(self):
@@ -398,7 +490,9 @@ class MainWindow(QMainWindow):
             "<b>Select several:</b> Ctrl+click tiles on the current layer, then drag them as one block.<br>"
             "<b>Scroll:</b> mouse wheel up and down, Ctrl+wheel left and right. Zoom (75% to 125%) with the "
             "slider under the map.<br>"
-            "<b>Piece lists:</b> pick Terrain, Castle or Trees/Ruins in the drop-down above each list.<br>"
+            "<b>Piece lists:</b> pick Terrain, Castles/Roads or Trees/Ruins in the drop-down above each list.<br>"
+            "<b>3D view:</b> the 2D / 3D switch in the top-right of the map. Right-drag or Q/E to turn, wheel "
+            "to zoom, drag to move. It's only for looking; switch back to 2D to edit.<br>"
             "<b>Move:</b> drag a tile (or the selected tiles) on the current layer.<br>"
             "<b>Remove:</b> select tiles and press Delete, or drag them back to the piece list.<br>"
             "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on "

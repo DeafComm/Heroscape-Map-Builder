@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from heroscape_builder.gui.drawing import HEX_RADIUS  # noqa: E402
 from heroscape_builder.gui.main_window import MainWindow  # noqa: E402
 from heroscape_builder.hexgrid import from_offset, hex_to_pixel  # noqa: E402
+from heroscape_builder.model import PlacedTile  # noqa: E402
 
 
 @pytest.fixture
@@ -21,7 +22,7 @@ def window(tmp_path):
     app = QApplication.instance() or QApplication([])
     settings = QSettings(str(tmp_path / "settings.ini"), QSettings.IniFormat)
     w = MainWindow(settings)
-    w.new_map("small", ask=False)
+    w.new_map("medium", ask=False)
     w.show()
     QTest.qWaitForWindowExposed(w)
     yield w
@@ -180,7 +181,7 @@ def test_inventory_dialog_lists_sets(window):
 
 def test_large_map_builds(window):
     window.new_map("large", ask=False)
-    assert window.model.size == 80
+    assert window.model.size == 50
 
 
 def test_placed_tile_stays_selected_for_rotating(window):
@@ -244,7 +245,7 @@ def test_size_drop_down_refuses_to_cut_off_tiles(window, monkeypatch):
     w = window
     w.size_box.setCurrentIndex(w.size_box.findData("large"))
     w.rules_box.setChecked(False)
-    drag_from_palette(w, "grass.1", 70, 70)
+    drag_from_palette(w, "grass.1", 40, 40)
     assert len(w.model.tiles) == 1
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: None)
     w.size_box.setCurrentIndex(w.size_box.findData("small"))
@@ -368,9 +369,11 @@ def test_two_piece_lists_with_drop_downs(window):
     assert top.rows["grass.7"].isVisible() and not top.rows["ruin.3"].isVisible()
     assert bottom.rows["ruin.3"].isVisible() and not bottom.rows["grass.7"].isVisible()
     assert bottom.rows["tree.15"].isVisible() and bottom.rows["stone_wall"].isVisible()
-    assert top.rows["swamp_water.1"].isVisible() and top.rows["road.5"].isVisible()
+    assert top.rows["swamp_water.1"].isVisible() and not top.rows["road.5"].isVisible()
     bottom.choice.setCurrentIndex(bottom.choice.findData("castle"))
-    assert bottom.rows["castle_wall.corner"].isVisible() and bottom.rows["walk.9"].isVisible()
+    assert bottom.rows["castle_wall.corner"].isVisible() and bottom.rows["road.5"].isVisible()
+    assert bottom.choice.currentText() == "Castles/Roads"
+    assert "flag" not in bottom.rows
     assert not bottom.empty_label.isVisible()
     top.choice.setCurrentIndex(top.choice.findData("trees_ruins"))
     assert top.rows["ruin.2"].isVisible()
@@ -444,8 +447,10 @@ def test_red_border_only_on_current_layer(window):
 def test_armies_panel_lists_characters(window):
     armies = window.armies
     assert armies.isVisible()
-    assert armies.choice.count() == 3  # the castle set has no characters
+    assert armies.choice.count() == 1  # only the base set is owned at first
     assert "Rise of the Valkyrie" in armies.title.text()
+    armies.set_owned({"rotv", "forest", "marro", "archkyrie"})
+    assert armies.choice.count() == 3  # the castle set has no characters
     assert len(armies.character_names) == 16 and "Mimring" in armies.character_names
     armies.choice.setCurrentIndex(armies.choice.findData("forest"))
     assert armies.character_names == ["Dumutef Guard"]
@@ -478,3 +483,78 @@ def test_castle_built_from_lists(window):
     w.set_layer(13)
     drag_from_palette(w, "walk.1", 10, 10)
     assert len(w.model.tiles) == 3
+
+
+def test_armies_only_from_owned_sets(window):
+    armies = window.armies
+    armies.set_owned({"forest"})
+    assert armies.character_names == ["Dumutef Guard"]
+    armies.set_owned(set())
+    assert armies.choice.count() == 0 and armies.empty_label.isVisible()
+    assert armies.character_names == []
+
+
+def test_terrain_list_order():
+    from heroscape_builder.pieces import load_pieces
+
+    terrain = [p.id for p in load_pieces() if p.category == "terrain"]
+    assert terrain[:3] == ["grass.24", "swamp.24", "rock.24"]
+    assert terrain[3:7] == ["grass.7", "swamp.7", "rock.7", "sand.7"]
+    assert terrain[-2:] == ["water.1", "swamp_water.1"]
+
+
+def test_drag_starts_from_row_text(window):
+    w = window
+    row = w.palette.rows["grass.7"]
+    QTest.mousePress(row.name_label, Qt.LeftButton, pos=row.name_label.rect().center())
+    assert w.map_view.carry is not None and w.map_view.carry["piece_id"] == "grass.7"
+    w.map_view.cancel_carry()
+
+
+def test_3d_view_is_look_only(window):
+    w = window
+    drag_from_palette(w, "grass.24", 10, 10)
+    w.step_layer(1)
+    drag_from_palette(w, "rock.7", 10, 10)
+    w.button_3d.click()
+    assert w.in_3d and w.map_stack.currentWidget() is w.view3d
+    assert w.cut_box.isVisible()
+    assert len(w.view3d.solids) == 24 + 7
+    # Dragging from the piece list does nothing while in 3D.
+    drag_from_palette(w, "grass.1", 20, 20)
+    assert len(w.model.tiles) == 2 and w.map_view.carry is None
+    # Q and E turn it 15 degrees; right-drag turns it smoothly.
+    QTest.keyClick(w.view3d, Qt.Key_E)
+    assert w.view3d.angle == 15
+    QTest.keyClick(w.view3d, Qt.Key_Q)
+    QTest.keyClick(w.view3d, Qt.Key_Q)
+    assert w.view3d.angle == 345
+    centre = w.view3d.rect().center()
+    QTest.mousePress(w.view3d, Qt.RightButton, pos=centre)
+    QTest.mouseMove(w.view3d, centre + QPoint(25, 0))
+    QTest.mouseRelease(w.view3d, Qt.RightButton, pos=centre + QPoint(25, 0))
+    assert w.view3d.angle == pytest.approx(355)
+    w.view3d.grab()  # draws without errors
+    # Showing only up to the current layer hides the rock on layer 2.
+    w.set_layer(1)
+    w.cut_box.setChecked(True)
+    assert len(w.view3d.solids) == 24
+    w.button_2d.click()
+    assert not w.in_3d and not w.cut_box.isVisible()
+    drag_from_palette(w, "grass.1", 20, 20)
+    assert len(w.model.tiles) == 3
+
+
+def test_3d_draws_every_kind_of_piece(window):
+    from heroscape_builder.gui.view3d import Cone, build_solids
+
+    w = window
+    m = w.model
+    m.follow_rules = False
+    for i, piece in enumerate(p for p in m.pieces.values() if p.placeable):
+        q, r = from_offset(3 + (i % 6) * 4, 3 + (i // 6) * 4)
+        m.add(PlacedTile(0, piece.id, q, r, 1))
+    solids = build_solids(m)
+    assert any(isinstance(s, Cone) for s in solids)
+    w.set_3d(True)
+    w.view3d.grab()
