@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .hexgrid import MAP_SIZES
 from .model import MapModel, PlacedTile
+from .pieces import OLD_PREFIX
 
 FORMAT_VERSION = 1
 FILE_SUFFIX = ".hsmap.json"
@@ -39,7 +40,7 @@ def map_from_dict(data, pieces):
     version = data.get("format_version")
     if not isinstance(version, int) or version > FORMAT_VERSION:
         raise MapFileError("This map was made by a newer version of the app")
-    size = data.get("size", "medium")
+    size = data.get("size", "small")
     if size not in MAP_SIZES:
         raise MapFileError(f"Unknown map size: {size}")
     model = MapModel(pieces, size, bool(data.get("follow_game_rules", True)))
@@ -55,6 +56,8 @@ def map_from_dict(data, pieces):
             )
         except (KeyError, TypeError, ValueError) as e:
             raise MapFileError(f"Tile {i + 1} is not valid") from e
+        if tile.piece_id not in model.pieces and tile.piece_id.startswith(OLD_PREFIX):
+            tile.piece_id = tile.piece_id.removeprefix(OLD_PREFIX)
         if tile.piece_id not in model.pieces:
             raise MapFileError(f"Unknown piece: {tile.piece_id}")
         # Rules are off while loading so a map saved without them still opens.

@@ -9,9 +9,9 @@ SQRT3 = math.sqrt(3)
 
 # Map sizes, as hexes across x hexes down.
 MAP_SIZES = {
-    "small": 30,
-    "medium": 50,
-    "large": 80,
+    "small": 20,
+    "medium": 30,
+    "large": 50,
 }
 
 

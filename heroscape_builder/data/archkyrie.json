@@ -1,0 +1,14 @@
+{
+  "counts": {
+    "castle_wall.straight": 7,
+    "castle_wall.corner": 10,
+    "castle_wall.end": 4,
+    "doorway": 1,
+    "walk.9": 1,
+    "walk.7": 1,
+    "walk.1": 21,
+    "ladder": 22,
+    "battlement": 50
+  },
+  "characters": []
+}

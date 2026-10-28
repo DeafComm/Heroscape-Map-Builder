@@ -1,0 +1,63 @@
+{
+  "counts": {
+    "rock.7": 1,
+    "rock.3": 1,
+    "rock.2": 1,
+    "rock.1": 1,
+    "sand.7": 5,
+    "sand.3": 2,
+    "sand.2": 1,
+    "sand.1": 1,
+    "grass.2": 1,
+    "grass.1": 1,
+    "swamp.24": 2,
+    "swamp.7": 10,
+    "swamp.3": 2,
+    "swamp.2": 2,
+    "swamp.1": 2,
+    "water.1": 8,
+    "swamp_water.1": 34
+  },
+  "characters": [
+    {
+      "name": "Tor-Kul-Na",
+      "count": 1
+    },
+    {
+      "name": "Sgt. Drake Alexander (Swarm of the Marro)",
+      "count": 1
+    },
+    {
+      "name": "Raelin the Kyrie Warrior (Swarm of the Marro)",
+      "count": 1
+    },
+    {
+      "name": "Shiori",
+      "count": 1
+    },
+    {
+      "name": "Major Q10",
+      "count": 1
+    },
+    {
+      "name": "Sonlen",
+      "count": 1
+    },
+    {
+      "name": "Marro Stingers",
+      "count": 2
+    },
+    {
+      "name": "Marro Drudge",
+      "count": 2
+    },
+    {
+      "name": "Marrden Nagrubs",
+      "count": 2
+    },
+    {
+      "name": "Marro Hive",
+      "count": 1
+    }
+  ]
+}

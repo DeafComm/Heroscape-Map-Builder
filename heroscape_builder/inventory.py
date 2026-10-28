@@ -12,7 +12,7 @@ class Inventory:
     def owned_counts(self, pieces):
         counts = {}
         for p in pieces:
-            counts[p.id] = p.count * self.copies.get(p.set_id, 0)
+            counts[p.id] = sum(n * self.copies.get(set_id, 0) for set_id, n in p.counts.items())
         return counts
 
     def to_dict(self):
