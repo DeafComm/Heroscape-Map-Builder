@@ -1,12 +1,12 @@
-"""A 3D view of the map: an isometric picture that can be turned, zoomed and moved, but not edited."""
+"""A 3D view of the map: an isometric picture of the placed tiles that spins in place and zooms, but can't be edited."""
 
 import math
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QPolygonF
+from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QWidget
 
-from ..hexgrid import from_offset, hex_corners, hex_to_pixel
+from ..hexgrid import hex_corners, hex_to_pixel
 from .drawing import HEX_RADIUS, blend, terrain_colour
 
 LAYER_HEIGHT = HEX_RADIUS * 0.5  # a bit thicker than the real tiles, so layers read clearly
@@ -17,8 +17,6 @@ MIN_SCALE, MAX_SCALE = 0.2, 6.0
 SEAM_SCALE = 1.6  # zoomed in at least this far, the lines between stacked layers show
 
 BACKGROUND = QColor("#3a3f44")
-BOARD = QColor("#e9e4d8")
-BOARD_LINE = QColor(0, 0, 0, 22)
 SIDE_TAN = QColor("#c9a777")  # the sides of the real tiles
 SIDE_STONE = QColor("#a9a397")  # castle parts and roads are grey plastic
 TOP_STONE = QColor("#c9c3b7")
@@ -178,10 +176,11 @@ class Map3DView(QWidget):
         self.model = None
         self.angle = 0.0  # degrees, turned around the middle of the map
         self.scale = 1.0
-        self.pan = QPointF(0, 0)
         self.cut_layer = None  # only show tiles starting at or below this layer
         self.solids = []
-        self._drag = None  # (button, last position)
+        self._drag = None  # last position of a right-drag
+        self._centre = (0.0, 0.0)
+        self._mid_height = 0.0
         self._needs_fit = True
 
     # --- content ------------------------------------------------------
@@ -201,29 +200,30 @@ class Map3DView(QWidget):
         self.solids = build_solids(self.model, self.cut_layer)
         self.update()
 
-    def _board_centre(self):
-        size = self.model.size
-        x0, y0 = hex_to_pixel(*from_offset(0, 0), HEX_RADIUS)
-        x1, y1 = hex_to_pixel(*from_offset(size - 1, size - 1), HEX_RADIUS)
-        return (x0 + x1) / 2, (y0 + y1) / 2
+    def _tiles_centre(self):
+        """The middle of the placed tiles, which the view spins around."""
+        cells = [hex_to_pixel(q, r, HEX_RADIUS) for t in self.model.tiles.values() for q, r in self.model.cells_of(t)]
+        if not cells:
+            return 0.0, 0.0
+        xs, ys = zip(*cells)
+        return (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
 
     def fit(self):
-        """Turn back to the start and zoom so the whole board fits."""
+        """Turn back to the start and zoom so the tiles fit, however the view is spun."""
         if self.model is None or self.width() < 10:
             return
         self.angle = 0.0
-        self.pan = QPointF(0, 0)
-        self.scale = 1.0
-        size = self.model.size
-        corners = [from_offset(c, r) for c in (0, size - 1) for r in (0, size - 1)]
-        xs, ys = [], []
-        for q, r in corners:
-            x, y = self._project_raw(*hex_to_pixel(q, r, HEX_RADIUS), 0)
-            xs.append(x)
-            ys.append(y)
-        width = (max(xs) - min(xs)) + 4 * HEX_RADIUS
-        height = (max(ys) - min(ys)) + 8 * HEX_RADIUS
-        self.scale = max(MIN_SCALE, min(MAX_SCALE, 0.92 * min(self.width() / width, self.height() / height)))
+        self._centre = self._tiles_centre()
+        reach, top = HEX_RADIUS * 3, LAYER_HEIGHT
+        for t in self.model.tiles.values():
+            top = max(top, self.model.top_of(t) * LAYER_HEIGHT)
+            for q, r in self.model.cells_of(t):
+                x, y = hex_to_pixel(q, r, HEX_RADIUS)
+                reach = max(reach, math.hypot(x - self._centre[0], y - self._centre[1]) + HEX_RADIUS)
+        width = 2 * reach
+        height = 2 * reach * math.sin(ELEVATION) + top * math.cos(ELEVATION)
+        self.scale = max(MIN_SCALE, min(MAX_SCALE, 0.9 * min(self.width() / width, self.height() / height)))
+        self._mid_height = top / 2  # keeps tall builds in the middle of the view
         self._needs_fit = False
         self.update()
 
@@ -235,16 +235,11 @@ class Map3DView(QWidget):
         dx, dy = x - cx, y - cy
         return dx * math.cos(a) - dy * math.sin(a), dx * math.sin(a) + dy * math.cos(a)
 
-    def _project_raw(self, x, y, z):
-        self._centre = self._board_centre()
-        xr, yr = self._rotated(x, y)
-        return xr, yr * math.sin(ELEVATION) - z * math.cos(ELEVATION)
-
     def project(self, x, y, z):
         xr, yr = self._rotated(x, y)
         return QPointF(
-            self.width() / 2 + self.pan.x() + self.scale * xr,
-            self.height() / 2 + self.pan.y() + self.scale * (yr * math.sin(ELEVATION) - z * math.cos(ELEVATION)),
+            self.width() / 2 + self.scale * xr,
+            self.height() / 2 + self.scale * (yr * math.sin(ELEVATION) - (z - self._mid_height) * math.cos(ELEVATION)),
         )
 
     def _depth(self, solid):
@@ -260,27 +255,13 @@ class Map3DView(QWidget):
             return
         if self._needs_fit:
             self.fit()
-        self._centre = self._board_centre()
+        self._centre = self._tiles_centre()
         painter.setRenderHint(QPainter.Antialiasing)
-        self._paint_board(painter)
         for solid in sorted(self.solids, key=self._depth):
             if isinstance(solid, Cone):
                 self._paint_cone(painter, solid)
             else:
                 self._paint_prism(painter, solid)
-
-    def _paint_board(self, painter):
-        path = QPainterPath()
-        size = self.model.size
-        for row in range(size):
-            for col in range(size):
-                q, r = from_offset(col, row)
-                points = [self.project(x, y, 0) for x, y in hex_corners(*hex_to_pixel(q, r, HEX_RADIUS), HEX_RADIUS)]
-                path.addPolygon(QPolygonF(points))
-                path.closeSubpath()
-        painter.setPen(QPen(BOARD_LINE, 1))
-        painter.setBrush(BOARD)
-        painter.drawPath(path)
 
     def _shade(self, colour, nx, ny):
         """Light the side facing direction (nx, ny) on the map: brighter facing the upper left."""
@@ -343,26 +324,22 @@ class Map3DView(QWidget):
         self.update()
 
     def mousePressEvent(self, event):
-        if event.button() in (Qt.LeftButton, Qt.RightButton):
-            self._drag = (event.button(), event.position())
-            self.setCursor(Qt.ClosedHandCursor if event.button() == Qt.LeftButton else Qt.SizeHorCursor)
+        # Only the right button does anything: it spins the map in place.
+        if event.button() == Qt.RightButton:
+            self._drag = event.position()
+            self.setCursor(Qt.SizeHorCursor)
 
     def mouseMoveEvent(self, event):
-        if not self._drag:
+        if self._drag is None:
             return
-        button, last = self._drag
         pos = event.position()
-        delta = pos - last
-        self._drag = (button, pos)
-        if button == Qt.RightButton:
-            self.turn(delta.x() * DRAG_TURN)
-        else:
-            self.pan += delta
-            self.update()
+        self.turn((pos - self._drag).x() * DRAG_TURN)
+        self._drag = pos
 
     def mouseReleaseEvent(self, event):
-        self._drag = None
-        self.unsetCursor()
+        if event.button() == Qt.RightButton:
+            self._drag = None
+            self.unsetCursor()
 
     def wheelEvent(self, event):
         steps = event.angleDelta().y() / 120

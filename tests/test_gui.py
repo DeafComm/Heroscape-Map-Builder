@@ -530,6 +530,11 @@ def test_3d_view_is_look_only(window):
     QTest.keyClick(w.view3d, Qt.Key_Q)
     assert w.view3d.angle == 345
     centre = w.view3d.rect().center()
+    # Left-drag does nothing: the map only spins in place.
+    QTest.mousePress(w.view3d, Qt.LeftButton, pos=centre)
+    QTest.mouseMove(w.view3d, centre + QPoint(40, 30))
+    QTest.mouseRelease(w.view3d, Qt.LeftButton, pos=centre + QPoint(40, 30))
+    assert w.view3d.angle == 345
     QTest.mousePress(w.view3d, Qt.RightButton, pos=centre)
     QTest.mouseMove(w.view3d, centre + QPoint(25, 0))
     QTest.mouseRelease(w.view3d, Qt.RightButton, pos=centre + QPoint(25, 0))
@@ -558,3 +563,65 @@ def test_3d_draws_every_kind_of_piece(window):
     assert any(isinstance(s, Cone) for s in solids)
     w.set_3d(True)
     w.view3d.grab()
+
+
+def build_wall(w):
+    drag_from_palette(w, "grass.24", 10, 10)
+    w.palette.lists[1].choice.setCurrentIndex(w.palette.lists[1].choice.findData("castle"))
+    w.step_layer(1)
+    drag_from_palette(w, "castle_wall.straight", 10, 10)
+    return [t for t in w.model.tiles.values() if t.piece_id == "castle_wall.straight"][0]
+
+
+def test_wall_walk_snaps_on_top_from_any_layer(window):
+    w = window
+    wall = build_wall(w)
+    w.set_layer(1)
+    drag_from_palette(w, "walk.1", 10, 10)
+    walk = [t for t in w.model.tiles.values() if t.piece_id == "walk.1"][0]
+    assert walk.layer == 13
+    # A walk can be picked up from any layer, but on the wall's own layer a click takes the wall.
+    assert w.map_view._pick(wall.q, wall.r) is walk
+    w.set_layer(2)
+    assert w.map_view._pick(wall.q, wall.r) is wall
+    # Right-click copies snap too.
+    w.set_layer(5)
+    assert w.map_view.last_placed[1] == "walk.1"
+
+
+def test_deleting_a_wall_takes_its_walk(window):
+    w = window
+    wall = build_wall(w)
+    drag_from_palette(w, "walk.1", 10, 10)
+    assert len(w.model.tiles) == 3
+    w.set_layer(2)
+    w.map_view.delete_tiles([wall.uid])
+    assert len(w.model.tiles) == 1
+    w.undo()
+    assert len(w.model.tiles) == 3
+
+
+def test_moving_a_wall_leaves_its_walk(window):
+    w = window
+    wall = build_wall(w)
+    drag_from_palette(w, "walk.1", 10, 10)
+    walk = [t for t in w.model.tiles.values() if t.piece_id == "walk.1"][0]
+    w.set_layer(2)
+    w.map_view.start_move([wall.uid], (wall.q, wall.r))
+    target = hex_global(w, 11, 11)
+    w.map_view.carry_move(target)
+    w.map_view.carry_release(target)
+    assert (wall.q, wall.r) != (walk.q, walk.r)
+    assert walk.uid in w.model.tiles and walk.layer == 13
+
+
+def test_3d_view_shows_only_tiles(window):
+    w = window
+    drag_from_palette(w, "grass.7", 10, 10)
+    w.set_3d(True)
+    centre = w.view3d._tiles_centre()
+    q, r = from_offset(10, 10)
+    assert centre == pytest.approx(hex_to_pixel(q, r, HEX_RADIUS))
+    image = w.view3d.grab().toImage()
+    corner = image.pixelColor(5, image.height() - 5)
+    assert corner.name() == "#3a3f44"  # just the background, no board

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from ..hexgrid import from_offset, hex_to_pixel, pixel_to_hex, rotate
 from ..history import GroupCommand, MoveCommand, PlaceCommand, RemoveCommand
-from ..model import PlacedTile
+from ..model import MAX_LAYER, PlacedTile
 from .drawing import HEX_RADIUS, blend as _blend, hex_polygon, outline_path, paint_details, terrain_colour, text_colour
 
 GRID_FILL = QColor("#f4f1ea")
@@ -358,13 +358,23 @@ class MapView(QGraphicsView):
         carry = self.carry
         if carry["members"] is None:
             gq, gr = carry["grab"]
-            return [(carry["piece_id"], q - gq, r - gr, self.active_layer, carry["rotation"], None)]
+            piece_id, rotation = carry["piece_id"], carry["rotation"]
+            layer = self._layer_for(piece_id, q - gq, r - gr, rotation, self.active_layer)
+            return [(piece_id, q - gq, r - gr, layer, rotation, None)]
+        moving = self._moving_uids()
         targets = []
         for m in carry["members"]:
             tile = self.model.tiles[m["uid"]]
             oq, orr = m["off"]
-            targets.append((tile.piece_id, q + oq, r + orr, tile.layer, m["rotation"], m["uid"]))
+            layer = self._layer_for(tile.piece_id, q + oq, r + orr, m["rotation"], tile.layer, moving)
+            targets.append((tile.piece_id, q + oq, r + orr, layer, m["rotation"], m["uid"]))
         return targets
+
+    def _layer_for(self, piece_id, q, r, rotation, default, ignore=()):
+        """Wall walks go on top of the walls under them, whatever layer is showing."""
+        if self.model.pieces[piece_id].kind == "walk":
+            return self.model.walk_layer(piece_id, q, r, rotation, ignore) or default
+        return default
 
     def _problem(self, targets):
         ignore = {t[5] for t in targets if t[5] is not None}
@@ -384,8 +394,8 @@ class MapView(QGraphicsView):
             moves = []
             for piece_id, q, r, layer, rotation, uid in targets:
                 tile = self.model.tiles[uid]
-                if (q, r, rotation) != (tile.q, tile.r, tile.rotation):
-                    moves.append(MoveCommand(tile, q, r, rotation))
+                if (q, r, rotation, layer) != (tile.q, tile.r, tile.rotation, tile.layer):
+                    moves.append(MoveCommand(tile, q, r, rotation, layer))
             if moves:
                 self.history.push(self.model, GroupCommand(moves))
                 self.selected = [t[5] for t in targets]
@@ -394,12 +404,13 @@ class MapView(QGraphicsView):
         if problem:
             self.message.emit(f"Can't place there: {problem}")
             return
-        piece_id, q, r, _layer, rotation, _uid = targets[0]
-        self._place(piece_id, q, r, rotation)
+        piece_id, q, r, layer, rotation, _uid = targets[0]
+        self._place(piece_id, q, r, rotation, layer)
 
-    def _place(self, piece_id, q, r, rotation):
-        """Place a new tile on the current layer and leave it selected for rotating."""
-        tile = PlacedTile(0, piece_id, q, r, self.active_layer, rotation)
+    def _place(self, piece_id, q, r, rotation, layer=None):
+        """Place a new tile (on the current layer unless told otherwise) and leave it selected."""
+        layer = self.active_layer if layer is None else layer
+        tile = PlacedTile(0, piece_id, q, r, layer, rotation)
         self.history.push(self.model, PlaceCommand(tile))
         self.selected = [tile.uid]
         self.last_placed = (tile.uid, piece_id, rotation)
@@ -414,11 +425,12 @@ class MapView(QGraphicsView):
         if uid in self.model.tiles:
             rotation = self.model.tiles[uid].rotation  # follow any rotation since it was placed
         q, r = self._hex_at(viewport_pos)
-        problem = self.model.check(piece_id, q, r, self.active_layer, rotation)
+        layer = self._layer_for(piece_id, q, r, rotation, self.active_layer)
+        problem = self.model.check(piece_id, q, r, layer, rotation)
         if problem:
             self.message.emit(f"Can't place there: {problem}")
             return
-        self._place(piece_id, q, r, rotation)
+        self._place(piece_id, q, r, rotation, layer)
 
     def _update_ghost(self):
         self._remove_ghosts()
@@ -463,12 +475,14 @@ class MapView(QGraphicsView):
         for uid in self.selected:
             tile = self.model.tiles[uid]
             oq, orr = rotate(tile.q - pivot.q, tile.r - pivot.r, steps)
-            targets.append((tile.piece_id, pivot.q + oq, pivot.r + orr, tile.layer, (tile.rotation + steps) % 6, uid))
+            q, r, rotation = pivot.q + oq, pivot.r + orr, (tile.rotation + steps) % 6
+            layer = self._layer_for(tile.piece_id, q, r, rotation, tile.layer, self.selected)
+            targets.append((tile.piece_id, q, r, layer, rotation, uid))
         problem = self._problem(targets)
         if problem:
             self.message.emit(f"Can't rotate: {problem}")
             return
-        moves = [MoveCommand(self.model.tiles[t[5]], t[1], t[2], t[4]) for t in targets]
+        moves = [MoveCommand(self.model.tiles[t[5]], t[1], t[2], t[4], t[3]) for t in targets]
         self.history.push(self.model, GroupCommand(moves))
         self.changed.emit()
 
@@ -477,6 +491,11 @@ class MapView(QGraphicsView):
         uids = list(self.selected if uids is None else uids)
         if not uids:
             return
+        # Walks resting on a wall go with it.
+        for uid in list(uids):
+            for walk in self.model.walks_on(self.model.tiles[uid]):
+                if walk.uid not in uids:
+                    uids.append(walk.uid)
         if self.model.follow_rules:
             for uid in uids:
                 if self.model.supports_others(self.model.tiles[uid], ignore=uids):
@@ -489,6 +508,24 @@ class MapView(QGraphicsView):
         self.changed.emit()
 
     # --- mouse and keyboard -------------------------------------------
+
+    def _pick(self, q, r):
+        """The piece a click on this hex picks up.
+
+        A wall walk can be picked from any layer, except that on a wall's own layer the wall is
+        picked. Otherwise it's the piece standing on the current layer (tall pieces are picked on
+        the layer they stand on).
+        """
+        tile = self.model.tile_at(q, r, self.active_layer)
+        if tile is not None and tile.layer != self.active_layer:
+            tile = None
+        if tile is not None and self.model.piece(tile).kind in ("castle_wall", "doorway", "walk"):
+            return tile
+        for layer in range(MAX_LAYER, 0, -1):
+            other = self.model.tile_at(q, r, layer)
+            if other is not None and self.model.piece(other).kind == "walk":
+                return other
+        return tile
 
     def mousePressEvent(self, event):
         if self.model is None:
@@ -507,9 +544,7 @@ class MapView(QGraphicsView):
         if event.button() != Qt.LeftButton:
             return
         q, r = self._hex_at(pos)
-        tile = self.model.tile_at(q, r, self.active_layer)
-        if tile is not None and tile.layer != self.active_layer:
-            tile = None  # tall pieces are picked on the layer they stand on
+        tile = self._pick(q, r)
         self._press = None
         if event.modifiers() & Qt.ControlModifier:
             # Ctrl+click adds a tile to the selection, or takes it out.
