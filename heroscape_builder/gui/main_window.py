@@ -176,7 +176,7 @@ class MainWindow(QMainWindow):
                 button.setChecked(True)
                 self.button_2d = button
             else:
-                button.setToolTip("Look at the map in 3D. Right-drag or Q/E to turn, wheel to zoom, drag to move")
+                button.setToolTip("Look at the map in 3D. Right-drag or Q/E to spin it, wheel to zoom")
                 self.button_3d = button
         self.button_3d.toggled.connect(self.set_3d)
         self.map_stack.installEventFilter(self)
@@ -203,6 +203,7 @@ class MainWindow(QMainWindow):
             self.map_view.cancel_carry()
             self.view3d.refresh()
             self.map_stack.setCurrentWidget(self.view3d)
+            self.view3d.fit()
             self.view3d.setFocus()
         else:
             self.map_stack.setCurrentWidget(self.map_view)
@@ -491,8 +492,10 @@ class MainWindow(QMainWindow):
             "<b>Scroll:</b> mouse wheel up and down, Ctrl+wheel left and right. Zoom (75% to 125%) with the "
             "slider under the map.<br>"
             "<b>Piece lists:</b> pick Terrain, Castles/Roads or Trees/Ruins in the drop-down above each list.<br>"
-            "<b>3D view:</b> the 2D / 3D switch in the top-right of the map. Right-drag or Q/E to turn, wheel "
-            "to zoom, drag to move. It's only for looking; switch back to 2D to edit.<br>"
+            "<b>3D view:</b> the 2D / 3D switch in the top-right of the map. Right-drag or Q/E to spin it, wheel "
+            "to zoom. It's only for looking; switch back to 2D to edit.<br>"
+            "<b>Wall walks:</b> drop them on walls from any layer and they snap to the top of the walls. They "
+            "can be picked up from any layer too, and go when the wall under them is deleted.<br>"
             "<b>Move:</b> drag a tile (or the selected tiles) on the current layer.<br>"
             "<b>Remove:</b> select tiles and press Delete, or drag them back to the piece list.<br>"
             "<b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on "

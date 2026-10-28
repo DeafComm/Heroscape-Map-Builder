@@ -142,6 +142,39 @@ class MapModel:
                 return True
         return False
 
+    def walk_layer(self, piece_id, q, r, rotation, ignore=()):
+        """The layer a wall walk snaps to here: one above the walls under its pegs.
+
+        None if a peg has no wall or doorway under it, or the walls aren't all the same height.
+        """
+        ignore = set(ignore)
+        piece = self.pieces[piece_id]
+        tops = set()
+        for cq, cr in piece.support_cells(q, r, rotation):
+            walls = [
+                self.top_of(t)
+                for _level, t in self._column(cq, cr, ignore)
+                if self.piece(t).kind in ("castle_wall", "doorway")
+            ]
+            if not walls:
+                return None
+            tops.add(max(walls))
+        return tops.pop() + 1 if len(tops) == 1 else None
+
+    def walks_on(self, tile):
+        """Wall walks resting on this wall or doorway."""
+        if self.piece(tile).kind not in ("castle_wall", "doorway"):
+            return []
+        cells = set(self.cells_of(tile))
+        top = self.top_of(tile)
+        result = []
+        for other in self.tiles.values():
+            piece = self.piece(other)
+            if piece.kind == "walk" and other.layer == top + 1:
+                if cells & set(piece.support_cells(other.q, other.r, other.rotation)):
+                    result.append(other)
+        return result
+
     def fits(self, size_name):
         """True if every tile would still be on a map of this size."""
         size = MAP_SIZES[size_name]
@@ -179,9 +212,11 @@ class MapModel:
                     del self._cells[(cq, cr, layer)]
         return tile
 
-    def move(self, uid, q, r, rotation):
+    def move(self, uid, q, r, rotation, layer=None):
         tile = self.remove(uid)
         tile.q, tile.r, tile.rotation = q, r, rotation % 6
+        if layer is not None:
+            tile.layer = layer
         self.add(tile)
         return tile
 

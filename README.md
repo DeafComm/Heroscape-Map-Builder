@@ -54,7 +54,7 @@ After the first time, start it with `.venv/bin/python -m heroscape_builder` from
 | Scroll the map | Mouse wheel scrolls up and down. Ctrl+wheel scrolls left and right |
 | Zoom | The zoom slider under the map (75% to 125%) |
 | Choose what the piece lists show | Each of the two lists on the left has a drop-down: Terrain, Castles/Roads or Trees/Ruins |
-| 3D view | The 2D / 3D switch in the top-right corner of the map. Right-drag turns it smoothly, Q and E turn it 15°, the wheel zooms and left-drag moves it. "Up to current layer" hides everything above the layer you're on. The 3D view is only for looking: pieces can't be dragged in while it's showing |
+| 3D view | The 2D / 3D switch in the top-right corner of the map. It shows only the tiles you've placed and spins in place: right-drag spins it smoothly, Q and E turn it 15°, and the wheel zooms. "Up to current layer" hides everything above the layer you're on. The 3D view is only for looking: pieces can't be dragged in while it's showing |
 | Turn the red outline on or off | The Red Border checkbox under the map |
 | Change layer | + goes up a layer, - goes down, or use the buttons under the map |
 | Undo / redo | Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) |
@@ -95,7 +95,10 @@ The map scrolls with the mouse wheel or the scroll bars when it's bigger than th
 - Castle walls (straight, corner and end) and the doorway stand on tiles and are 11 layers
   tall. Only wall walks can go on top of them. The doorway takes 3 hexes in a line.
 - Each peg hex of a wall walk (marked with a dot) must sit on top of a wall or the doorway.
-  The other hexes can hang free.
+  The other hexes can hang free. Wall walks can be dropped from any layer: they snap onto the
+  top of the walls under their pegs. A placed walk can be picked up or deleted from any layer
+  (on a wall's own layer, a click picks the wall). Moving a wall leaves its walk where it is;
+  deleting a wall deletes the walks on it too.
 - A ladder stands against a castle wall on the same layer and uses 11 rungs.
 - A piece that other pieces rest on or stand against can't be removed until they are.
 

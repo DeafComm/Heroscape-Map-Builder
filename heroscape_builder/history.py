@@ -28,12 +28,12 @@ class RemoveCommand:
 
 
 class MoveCommand:
-    """Moves and/or rotates a tile on its layer."""
+    """Moves and/or rotates a tile, on its layer unless a new one is given (wall walks snap to walls)."""
 
-    def __init__(self, tile, q, r, rotation):
+    def __init__(self, tile, q, r, rotation, layer=None):
         self.uid = tile.uid
-        self.old = (tile.q, tile.r, tile.rotation)
-        self.new = (q, r, rotation % 6)
+        self.old = (tile.q, tile.r, tile.rotation, tile.layer)
+        self.new = (q, r, rotation % 6, tile.layer if layer is None else layer)
 
     def do(self, model):
         model.move(self.uid, *self.new)

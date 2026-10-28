@@ -425,3 +425,28 @@ def test_five_hex_road_bridges_on_its_ends():
     assert m.supports_others(m.tile_at(*cells[0], 1))
     assert not m.supports_others(m.tile_at(*cells[2], 1))
     assert bridge.uid in m.tiles
+
+
+def test_walk_layer_snaps_to_wall_tops():
+    m = MapModel(PIECES, "medium")
+    ground(m, 10, 10)
+    walk = PIECES_BY_ID["walk.7"]
+    q, r = from_offset(10, 10)
+    assert m.walk_layer("walk.7", q, r, 0) is None
+    pegs = walk.support_cells(q, r, 0)
+    for cell in pegs:
+        m.add(PlacedTile(0, "castle_wall.end", cell[0], cell[1], 2))
+    assert m.walk_layer("walk.7", q, r, 0) == 13
+    m.remove(m.tile_at(*pegs[0], 2).uid)
+    m.follow_rules = False
+    m.add(PlacedTile(0, "castle_wall.end", pegs[0][0], pegs[0][1], 3))
+    assert m.walk_layer("walk.7", q, r, 0) is None  # walls of different heights
+
+
+def test_walks_on_a_wall():
+    m = MapModel(PIECES, "medium")
+    ground(m, 10, 10)
+    wall = place(m, "castle_wall.straight", 10, 10, layer=2)
+    walk = m.add(PlacedTile(0, "walk.1", wall.q, wall.r, 13))
+    assert m.walks_on(wall) == [walk]
+    assert m.walks_on(walk) == []
