@@ -3,6 +3,8 @@ A Love affair with a silly game. Lets build custom maps together
 
 A Linux desktop app for building Heroscape maps from the terrain tiles you own.
 
+App entirely built by Claude ai and my imagination. 
+
 ![Screenshot](docs/screenshot.png)
 
 ![3D view](docs/screenshot-3d.png)
