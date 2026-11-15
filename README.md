@@ -1,7 +1,26 @@
 # Heroscape-Map-Builder
 A Love affair with a silly game. Lets build custom maps together
 
-A Linux desktop app for building Heroscape maps from the terrain tiles you own.
+A map builder for Heroscape maps, made from the terrain tiles you own. It runs in the browser
+and as a Linux desktop app.
+
+## Use it in your browser
+
+Open **https://deafcomm.github.io/Heroscape-Map-Builder/** in Chrome, Edge or Firefox on a PC.
+Nothing to install and no account. The browser version does everything the desktop app does,
+with a few differences:
+
+- **Save** writes a `.hsmap.json` file, the same kind the desktop app uses, so maps move freely
+  between the two. In Chrome and Edge, Save keeps writing to the same file after the first time;
+  in Firefox each Save downloads a fresh copy.
+- The map you're working on is also kept in the browser, so it's still there if you close the tab.
+  Your inventory and the Red Border setting are remembered the same way.
+- Scrolling sideways is Ctrl+wheel or Shift+wheel, and you can also drag the map with the middle
+  mouse button.
+
+The site rebuilds itself from the `web/` folder every time a change lands on `main`. To try the
+browser version from a clone, run `python3 -m http.server` in a folder holding `web/`'s contents
+plus `heroscape_builder/data` copied in as `data/`, then open http://localhost:8000.
 
 App entirely built by Claude ai and my imagination. 
 
@@ -24,7 +43,7 @@ App entirely built by Claude ai and my imagination.
 - Small (20 × 20), Medium (30 × 30) and Large (50 × 50) maps, picked from a drop-down under the map.
   New maps start Small.
 
-## Running it on Linux Mint
+## Running the desktop app on Linux Mint
 
 You need Python 3.10 or newer (Linux Mint 21 and 22 both have it).
 
