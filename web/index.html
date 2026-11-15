@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Heroscape Map Builder</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,4 90,27 90,73 50,96 10,73 10,27' fill='%235aa83c' stroke='%231d1d1d' stroke-width='6'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="menubar">
+    <span class="brand">Heroscape Map Builder</span>
+    <nav>
+      <button data-action="new" title="Start a new map">New</button>
+      <button data-action="open" title="Open a map file (Ctrl+O)">Open…</button>
+      <button data-action="save" title="Save the map (Ctrl+S)">Save</button>
+      <button data-action="saveAs" title="Save the map as a new file (Ctrl+Shift+S)">Save As…</button>
+      <span class="sep"></span>
+      <button data-action="undo" title="Undo (Ctrl+Z)">Undo</button>
+      <button data-action="redo" title="Redo (Ctrl+Y)">Redo</button>
+      <span class="sep"></span>
+      <button data-action="inventory" title="Pick the sets you own (Ctrl+I)">Inventory…</button>
+      <button data-action="controls">Controls</button>
+    </nav>
+    <span id="doc-name" class="doc-name"></span>
+  </header>
+
+  <main class="layout">
+    <aside id="palette" class="palette"></aside>
+
+    <section class="centre">
+      <div id="map-box" class="map-box">
+        <canvas id="map2d" tabindex="0"></canvas>
+        <canvas id="map3d" tabindex="0" hidden></canvas>
+        <div id="layer-badge" class="badge">Layer 1</div>
+        <div class="view-switch">
+          <label id="cut-label" hidden title="Only show pieces on the current layer and below">
+            <input type="checkbox" id="cut-box"> Up to current layer
+          </label>
+          <button id="btn-2d" class="on">2D</button>
+          <button id="btn-3d" title="Look at the map in 3D. Right-drag or Q/E to spin it, wheel to zoom">3D</button>
+        </div>
+      </div>
+      <div class="bottom">
+        <span>Layer:</span>
+        <button id="layer-down" title="Down one layer (-)">−</button>
+        <span id="layer-label" class="layer-label"></span>
+        <button id="layer-up" title="Up one layer (+)">+</button>
+        <label class="gap"><input type="checkbox" id="rules-box"> Follow game rules</label>
+        <label title="Outline tiles placed beyond what you own in red"><input type="checkbox" id="red-border-box"> Red Border</label>
+        <span class="stretch"></span>
+        <label>Zoom: <input type="range" id="zoom" min="75" max="125" step="5" value="100"></label>
+        <span id="zoom-label" class="zoom-label">100%</span>
+        <label class="gap">Size: <select id="size-box"></select></label>
+      </div>
+    </section>
+
+    <aside class="armies">
+      <b>Armies</b>
+      <select id="army-choice"></select>
+      <div class="army-list">
+        <div id="army-title" class="army-title"></div>
+        <div id="army-empty" class="empty">Tick the sets you own in the Inventory window to see their armies here.</div>
+        <div id="army-rows"></div>
+      </div>
+    </aside>
+  </main>
+
+  <footer id="status" class="status"></footer>
+
+  <dialog id="inventory-dialog">
+    <form method="dialog">
+      <h2>Inventory</h2>
+      <p>Tick the sets you own. Your inventory is remembered in this browser.</p>
+      <table>
+        <thead><tr><th>Set</th><th>Copies</th><th></th></tr></thead>
+        <tbody id="inventory-rows"></tbody>
+      </table>
+      <div class="buttons">
+        <button value="cancel">Cancel</button>
+        <button value="save" class="primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="ask-dialog">
+    <form method="dialog">
+      <h2 id="ask-title"></h2>
+      <p id="ask-text"></p>
+      <div id="ask-buttons" class="buttons"></div>
+    </form>
+  </dialog>
+
+  <dialog id="controls-dialog" class="wide">
+    <form method="dialog">
+      <h2>Controls</h2>
+      <ul class="controls">
+        <li><b>Place:</b> drag a piece from the left onto the map. Or click a piece, then click on the map to place copies; right-click or Esc stops.</li>
+        <li><b>Place another:</b> right-click on the map to place another of the last tile you placed.</li>
+        <li><b>Rotate:</b> R (Shift+R the other way), while carrying a piece or with tiles selected. A tile you just placed stays selected.</li>
+        <li><b>Select several:</b> Ctrl+click tiles on the current layer, then drag them as one block.</li>
+        <li><b>Scroll:</b> mouse wheel up and down, Ctrl+wheel or Shift+wheel left and right, or drag with the middle button. Zoom (75% to 125%) with the slider under the map.</li>
+        <li><b>Piece lists:</b> pick Terrain, Castles/Roads or Trees/Ruins in the drop-down above each list.</li>
+        <li><b>3D view:</b> the 2D / 3D switch in the top-right of the map. Right-drag or Q/E to spin it, wheel to zoom. It's only for looking; switch back to 2D to edit.</li>
+        <li><b>Wall walks:</b> drop them on walls from any layer and they snap to the top of the walls. They can be picked up from any layer too, and go when the wall under them is deleted.</li>
+        <li><b>Move:</b> drag a tile (or the selected tiles) on the current layer.</li>
+        <li><b>Remove:</b> select tiles and press Delete, or drag them back to the piece list.</li>
+        <li><b>Layers:</b> + goes up a layer, - goes down. New tiles go on the current layer. Tiles on lower layers get a white wash that gets stronger the further down they are, and tiles on higher layers fade. Each hex shows the number of the highest layer filled at or below the current layer, which is also shown in the top-left corner of the map.</li>
+        <li><b>Tall pieces:</b> trees, castle walls, the doorway and ladders fill several layers. Place them on the layer above the tile they stand on; their hexes show their top layer. Wall walks go on the layer above a wall's top.</li>
+        <li><b>Red Border:</b> turns the red outline on tiles beyond what you own on or off. It only shows on the current layer.</li>
+        <li><b>Undo / redo:</b> Ctrl+Z / Ctrl+Y (last 20 actions).</li>
+        <li><b>Saving:</b> Save writes a <code>.hsmap.json</code> file, the same kind the desktop app uses. The map you're working on is also kept in this browser, so it's still there if you close the tab.</li>
+      </ul>
+      <div class="buttons"><button value="ok" class="primary">OK</button></div>
+    </form>
+  </dialog>
+
+  <input type="file" id="file-input" accept=".json,application/json" hidden>
+</body>
+</html>
